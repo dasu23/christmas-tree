@@ -40,7 +40,7 @@ jobs:
         uses: actions/upload-pages-artifact@v3
         with:
           # 如果 build 后生成的是 dist 文件夹，请把 'out' 改为 'dist'
-          path: './out'
+          path: './dist'
 
   deploy:
     environment:
