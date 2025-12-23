@@ -5,7 +5,9 @@ import react from '@vitejs/plugin-react';
 export default defineConfig(({ mode }) => {
     const env = loadEnv(mode, '.', '');
     return {
-      base: './', // 关键修改：使用相对路径
+      // 关键修改：添加 base 配置，必须以斜杠开始和结束
+      base: '/christmas-tree/', 
+      
       server: {
         port: 3000,
         host: '0.0.0.0',
