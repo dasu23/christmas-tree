@@ -350,20 +350,51 @@ const PolaroidPhoto: React.FC<{
 
   useEffect(() => {
     if (!shouldLoad) return;
+    
+    console.log(`尝试加载照片: ${url} (ID: ${id})`);
     const loader = new THREE.TextureLoader();
+    
     loader.load(
       url,
       (tex) => {
         tex.colorSpace = THREE.SRGBColorSpace;
         setTexture(tex);
+        console.log(`照片加载成功: ${url}`);
       },
-      undefined,
-      () => {
-        const seed = id.split('-')[1] || '55';
-        loader.load(`https://picsum.photos/seed/${parseInt(seed) + 100}/400/500`, (fbTex) => {
-          fbTex.colorSpace = THREE.SRGBColorSpace;
-          setTexture(fbTex);
-        });
+      (progress) => {
+        console.log(`照片加载进度: ${url} - ${(progress.loaded / progress.total * 100).toFixed(2)}%`);
+      },
+      (error) => {
+        console.error(`照片加载失败: ${url}`, error);
+        // 对于1.jpg和2.jpg，尝试备用路径
+        if (url === './1.jpg' || url === './2.jpg') {
+          const backupUrl = url.replace('./', '/');
+          console.log(`尝试备用路径: ${backupUrl}`);
+          loader.load(
+            backupUrl,
+            (tex) => {
+              tex.colorSpace = THREE.SRGBColorSpace;
+              setTexture(tex);
+              console.log(`备用路径加载成功: ${backupUrl}`);
+            },
+            undefined,
+            () => {
+              console.log('备用路径也失败，使用随机图片');
+              const seed = id.split('-')[1] || '55';
+              loader.load(`https://picsum.photos/seed/${parseInt(seed) + 100}/400/500`, (fbTex) => {
+                fbTex.colorSpace = THREE.SRGBColorSpace;
+                setTexture(fbTex);
+              });
+            }
+          );
+        } else {
+          // 其他照片使用随机图片作为备选
+          const seed = id.split('-')[1] || '55';
+          loader.load(`https://picsum.photos/seed/${parseInt(seed) + 100}/400/500`, (fbTex) => {
+            fbTex.colorSpace = THREE.SRGBColorSpace;
+            setTexture(fbTex);
+          });
+        }
       }
     );
   }, [url, id, shouldLoad]);
@@ -448,8 +479,14 @@ const TreeSystem: React.FC = () => {
 
   useEffect(() => {
     const interval = setInterval(() => {
-      setLoadedCount(prev => prev >= photoObjects.length ? prev : prev + 1);
-    }, 100);
+      setLoadedCount(prev => {
+        const newCount = prev >= photoObjects.length ? prev : prev + 1;
+        if (newCount !== prev) {
+          console.log(`照片加载进度: ${newCount}/${photoObjects.length}`);
+        }
+        return newCount;
+      });
+    }, 50); // 加快加载速度
     return () => clearInterval(interval);
   }, [photoObjects.length]);
 
@@ -505,8 +542,9 @@ const TreeSystem: React.FC = () => {
       lightTree[i3 + 2] = Math.sin(angle) * r; 
     }
 
-    const photoFiles = [
-      "1.jpg", "2.jpg",
+    // 特殊照片放在前面，其他按时间顺序排列
+    const specialPhotos = ["1.jpg", "2.jpg"];
+    const otherPhotos = [
       "2024_06_1.jpg", "2024_07_1.jpg", "2024_07_2.jpg",
       "2024_09_1.jpg", "2024_09_2.jpg", "2024_09_3.jpg",
       "2024_09_4.jpg", "2024_09_5.jpg", "2024_09_6.jpg",
@@ -519,6 +557,7 @@ const TreeSystem: React.FC = () => {
       "2025_10_1.jpg", "2025_10_2.jpg", "2025_11_1.jpg",
       "2025_11_2.jpg"
     ].sort();
+    const photoFiles = [...specialPhotos, ...otherPhotos];
 
     const photos: ParticleData[] = photoFiles.map((fileName, i) => {
       const parts = fileName.split('_');
@@ -576,20 +615,25 @@ const TreeSystem: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    setPhotoObjects(photosData.map(p => ({ 
-      id: p.id, 
-      url: p.image!, 
-      ref: React.createRef(), 
-      data: p, 
-      pos: new THREE.Vector3(), 
-      rot: new THREE.Euler(), 
-      scale: p.scale 
-    })));
+    console.log('创建照片对象，总数:', photosData.length);
+    const newPhotoObjects = photosData.map((p, i) => {
+      console.log(`照片 ${i}: ${p.image}, 位置: [${p.treePos.join(', ')}]`);
+      return { 
+        id: p.id, 
+        url: p.image!, 
+        ref: React.createRef<THREE.Group>(), 
+        data: p, 
+        pos: new THREE.Vector3(), 
+        rot: new THREE.Euler(), 
+        scale: p.scale 
+      };
+    });
+    setPhotoObjects(newPhotoObjects);
   }, [photosData]);
 
-  // 检测悬停
+  // 检测悬停 - 在所有状态下都工作
   useEffect(() => {
-    if (state !== 'CHAOS' || !pointer) {
+    if (!pointer) {
       setHoveredPhotoId(null);
       return;
     }
@@ -620,7 +664,7 @@ const TreeSystem: React.FC = () => {
   const photoOpenTimeRef = useRef<number>(0);
 
   useEffect(() => {
-    if (state === 'CHAOS' && pointer) {
+    if (pointer && clickTrigger) {
       if (selectedPhotoUrl && Date.now() - photoOpenTimeRef.current < 3000) return;
 
       const ndcX = pointer.x * 2 - 1;
@@ -841,14 +885,30 @@ const TreeSystem: React.FC = () => {
             url={obj.url}
             position={obj.pos}
             rotation={obj.rot}
-            scale={obj.scale}
+            scale={obj.scale * (index < 2 ? 1.2 : 1.0)} // 1.jpg和2.jpg稍大一些
             id={obj.id}
             shouldLoad={index < loadedCount}
             year={obj.data.year}
             isHovered={hoveredPhotoId === obj.id}
           />
           
-          {obj.data.year && (index === 0 || photoObjects[index - 1].data.year !== obj.data.year) && (
+          {/* 特殊照片标签 */}
+          {index < 2 && (
+            <group position={[0, -0.8, 0.1]}>
+              <Text 
+                fontSize={0.15} 
+                color="#ff6b6b" 
+                font="./fonts/Cinzel-Bold.ttf" 
+                anchorX="center" 
+                anchorY="middle" 
+                fillOpacity={1}
+              >
+                {index === 0 ? "特别纪念" : "珍藏回忆"}
+              </Text>
+            </group>
+          )}
+          
+          {obj.data.year && (index === 0 || photoObjects[index - 1].data.year !== obj.data.year) && index >= 2 && (
             <group position={[0, 0.7, 0.05]}>
               <Text position={[0.01, -0.01, -0.01]} fontSize={0.2} color="#000000" font="./fonts/Cinzel-Bold.ttf" anchorX="center" anchorY="bottom" fillOpacity={0.5}>
                 {`${obj.data.year}-${obj.data.month}`}
