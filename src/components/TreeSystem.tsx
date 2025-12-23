@@ -6,11 +6,96 @@ import { shaderMaterial, Text, Line } from '@react-three/drei';
 import * as random from 'maath/random/dist/maath-random.esm';
 import { TreeContext, ParticleData, TreeContextType } from '../types';
 
-// ... (FoliageMaterial shader 代码保持不变) ...
+// --- 增强版树叶材质 - 带雪花点缀和更自然的渐变 ---
 const FoliageMaterial = shaderMaterial(
-  { uTime: 0, uColor: new THREE.Color('#0f2e13'), uColorAccent: new THREE.Color('#4caf50'), uPixelRatio: 1 },
-  ` uniform float uTime; uniform float uPixelRatio; attribute float size; varying vec3 vPosition; varying float vBlink; vec3 curl(float x, float y, float z) { float eps=1.,n1,n2,a,b;x/=eps;y/=eps;z/=eps;vec3 curl=vec3(0.);n1=sin(y+cos(z+uTime));n2=cos(x+sin(z+uTime));curl.x=n1-n2;n1=sin(z+cos(x+uTime));n2=cos(y+sin(x+uTime));curl.z=n1-n2;n1=sin(x+cos(y+uTime));n2=cos(z+sin(y+uTime));curl.z=n1-n2;return curl*0.1; } void main() { vPosition=position; vec3 distortedPosition=position+curl(position.x,position.y,position.z); vec4 mvPosition=modelViewMatrix*vec4(distortedPosition,1.0); gl_Position=projectionMatrix*mvPosition; gl_PointSize=size*uPixelRatio*(80.0/-mvPosition.z); vBlink=sin(uTime*2.0+position.y*5.0+position.x); } `,
-  ` uniform vec3 uColor; uniform vec3 uColorAccent; varying float vBlink; void main() { vec2 xy=gl_PointCoord.xy-vec2(0.5); float ll=length(xy); if(ll>0.5) discard; float strength=pow(1.0-ll*2.0,3.0); vec3 color=mix(uColor,uColorAccent,smoothstep(-0.8,0.8,vBlink)); gl_FragColor=vec4(color,strength); } `
+  { 
+    uTime: 0, 
+    uColorBase: new THREE.Color('#0a1f0d'),      // 深绿色底色
+    uColorMid: new THREE.Color('#1b4d2e'),       // 中绿色
+    uColorTip: new THREE.Color('#4caf50'),       // 亮绿色尖端
+    uColorSnow: new THREE.Color('#e8f4f8'),      // 雪白色
+    uPixelRatio: 1 
+  },
+  // Vertex Shader - 增强版
+  `
+    uniform float uTime;
+    uniform float uPixelRatio;
+    attribute float size;
+    varying vec3 vPosition;
+    varying float vBlink;
+    varying float vHeight;
+    varying float vSnowChance;
+    
+    // 柔和的噪声扰动
+    vec3 curl(float x, float y, float z) {
+      float eps = 1.0;
+      vec3 curl = vec3(0.0);
+      float n1 = sin(y + cos(z + uTime * 0.3));
+      float n2 = cos(x + sin(z + uTime * 0.3));
+      curl.x = (n1 - n2) * 0.08;
+      n1 = sin(z + cos(x + uTime * 0.3));
+      n2 = cos(y + sin(x + uTime * 0.3));
+      curl.y = (n1 - n2) * 0.05;
+      curl.z = (n1 - n2) * 0.08;
+      return curl;
+    }
+    
+    void main() {
+      vPosition = position;
+      vHeight = (position.y + 7.5) / 16.0; // 归一化高度 0-1
+      
+      // 雪花概率 - 顶部和外围更多雪
+      float distFromCenter = length(position.xz);
+      vSnowChance = smoothstep(0.3, 1.0, vHeight) * 0.4 + 
+                    smoothstep(2.0, 8.0, distFromCenter) * 0.3 +
+                    fract(sin(dot(position.xy, vec2(12.9898, 78.233))) * 43758.5453) * 0.3;
+      
+      vec3 distortedPosition = position + curl(position.x, position.y, position.z);
+      vec4 mvPosition = modelViewMatrix * vec4(distortedPosition, 1.0);
+      gl_Position = projectionMatrix * mvPosition;
+      
+      // 粒子大小随高度变化 - 顶部更小更尖
+      float sizeMultiplier = mix(1.2, 0.6, vHeight);
+      gl_PointSize = size * uPixelRatio * sizeMultiplier * (90.0 / -mvPosition.z);
+      
+      vBlink = sin(uTime * 1.5 + position.y * 3.0 + position.x * 2.0);
+    }
+  `,
+  // Fragment Shader - 增强版
+  `
+    uniform vec3 uColorBase;
+    uniform vec3 uColorMid;
+    uniform vec3 uColorTip;
+    uniform vec3 uColorSnow;
+    uniform float uTime;
+    varying float vBlink;
+    varying float vHeight;
+    varying float vSnowChance;
+    
+    void main() {
+      vec2 xy = gl_PointCoord.xy - vec2(0.5);
+      float ll = length(xy);
+      if (ll > 0.5) discard;
+      
+      // 柔和的圆形渐变
+      float strength = pow(1.0 - ll * 2.0, 2.5);
+      
+      // 基于高度的颜色渐变
+      vec3 greenColor = mix(uColorBase, uColorMid, smoothstep(0.0, 0.4, vHeight));
+      greenColor = mix(greenColor, uColorTip, smoothstep(0.4, 0.9, vHeight));
+      
+      // 呼吸闪烁效果
+      float blink = smoothstep(-0.5, 0.5, vBlink) * 0.3 + 0.7;
+      greenColor *= blink;
+      
+      // 雪花效果 - 部分粒子显示为白色
+      float snowThreshold = 0.75;
+      vec3 finalColor = vSnowChance > snowThreshold ? uColorSnow : greenColor;
+      float snowBrightness = vSnowChance > snowThreshold ? 1.2 : 1.0;
+      
+      gl_FragColor = vec4(finalColor * snowBrightness, strength * 0.9);
+    }
+  `
 );
 extend({ FoliageMaterial });
 
@@ -18,8 +103,53 @@ declare module '@react-three/fiber' {
   interface ThreeElements {
     foliageMaterial: any
     shimmerMaterial: any
+    fairyLightMaterial: any
   }
 }
+
+// --- 彩灯材质 - 多彩闪烁效果 ---
+const FairyLightMaterial = shaderMaterial(
+  {
+    uTime: 0,
+    uColors: [
+      new THREE.Color('#ff4444'), // 红
+      new THREE.Color('#ffaa00'), // 金
+      new THREE.Color('#44ff44'), // 绿
+      new THREE.Color('#4444ff'), // 蓝
+      new THREE.Color('#ff44ff'), // 粉
+      new THREE.Color('#ffffff'), // 白
+    ]
+  },
+  // Vertex
+  `
+    varying float vIndex;
+    attribute float lightIndex;
+    void main() {
+      vIndex = lightIndex;
+      gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+    }
+  `,
+  // Fragment
+  `
+    uniform float uTime;
+    uniform vec3 uColors[6];
+    varying float vIndex;
+    
+    void main() {
+      int colorIdx = int(mod(vIndex, 6.0));
+      vec3 color = uColors[colorIdx];
+      
+      // 闪烁效果 - 每个灯不同相位
+      float twinkle = sin(uTime * 3.0 + vIndex * 1.7) * 0.5 + 0.5;
+      twinkle = pow(twinkle, 0.5); // 更亮的闪烁
+      
+      float intensity = 0.6 + twinkle * 0.4;
+      
+      gl_FragColor = vec4(color * intensity, 1.0);
+    }
+  `
+);
+extend({ FairyLightMaterial });
 
 // --- Shimmer Material ---
 const ShimmerMaterial = shaderMaterial(
@@ -414,15 +544,49 @@ const TreeSystem: React.FC = () => {
     }
     if (lightsRef.current) {
       const dummy = new THREE.Object3D();
+      const time = state3d.clock.getElapsedTime();
+      
+      // 圣诞彩灯颜色
+      const lightColors = [
+        new THREE.Color('#ff3333'), // 红
+        new THREE.Color('#ffcc00'), // 金
+        new THREE.Color('#33ff33'), // 绿
+        new THREE.Color('#3366ff'), // 蓝
+        new THREE.Color('#ff66ff'), // 粉
+        new THREE.Color('#ffffff'), // 白
+      ];
+      
       for (let i = 0; i < lightsData.count; i++) {
-        const i3 = i * 3; const cx = lightsData.chaos[i3]; const cy = lightsData.chaos[i3 + 1]; const cz = lightsData.chaos[i3 + 2]; const tx = lightsData.tree[i3]; const ty = lightsData.tree[i3 + 1]; const tz = lightsData.tree[i3 + 2];
-        const y = THREE.MathUtils.lerp(cy, ty, ease); const tr = Math.sqrt(tx * tx + tz * tz); const tAngle = Math.atan2(tz, tx); const cr = Math.sqrt(cx * cx + cz * cz); const r = THREE.MathUtils.lerp(cr, tr, ease);
+        const i3 = i * 3; 
+        const cx = lightsData.chaos[i3]; const cy = lightsData.chaos[i3 + 1]; const cz = lightsData.chaos[i3 + 2]; 
+        const tx = lightsData.tree[i3]; const ty = lightsData.tree[i3 + 1]; const tz = lightsData.tree[i3 + 2];
+        const y = THREE.MathUtils.lerp(cy, ty, ease); 
+        const tr = Math.sqrt(tx * tx + tz * tz); const tAngle = Math.atan2(tz, tx); 
+        const cr = Math.sqrt(cx * cx + cz * cz); const r = THREE.MathUtils.lerp(cr, tr, ease);
         const vortexTwist = (1 - ease) * 12.0; const currentAngle = tAngle + vortexTwist + treeRotation.current;
-        const cAngle = Math.atan2(cz, cx); const cRotatedX = cr * Math.cos(cAngle + treeRotation.current * 0.3); const cRotatedZ = cr * Math.sin(cAngle + treeRotation.current * 0.3);
-        const fx = THREE.MathUtils.lerp(cRotatedX, r * Math.cos(currentAngle), ease); const fz = THREE.MathUtils.lerp(cRotatedZ, r * Math.sin(currentAngle), ease);
-        dummy.position.set(fx, y, fz); dummy.scale.setScalar(1); dummy.updateMatrix(); lightsRef.current.setMatrixAt(i, dummy.matrix);
+        const cAngle = Math.atan2(cz, cx); 
+        const cRotatedX = cr * Math.cos(cAngle + treeRotation.current * 0.3); 
+        const cRotatedZ = cr * Math.sin(cAngle + treeRotation.current * 0.3);
+        const fx = THREE.MathUtils.lerp(cRotatedX, r * Math.cos(currentAngle), ease); 
+        const fz = THREE.MathUtils.lerp(cRotatedZ, r * Math.sin(currentAngle), ease);
+        
+        // 闪烁缩放效果
+        const twinkle = Math.sin(time * 4.0 + i * 1.3) * 0.5 + 0.5;
+        const scale = 0.8 + twinkle * 0.5;
+        
+        dummy.position.set(fx, y, fz); 
+        dummy.scale.setScalar(scale); 
+        dummy.updateMatrix(); 
+        lightsRef.current.setMatrixAt(i, dummy.matrix);
+        
+        // 设置颜色
+        const colorIndex = i % lightColors.length;
+        const intensity = 0.7 + twinkle * 0.5;
+        const color = lightColors[colorIndex].clone().multiplyScalar(intensity);
+        lightsRef.current.setColorAt(i, color);
       }
       lightsRef.current.instanceMatrix.needsUpdate = true;
+      if (lightsRef.current.instanceColor) lightsRef.current.instanceColor.needsUpdate = true;
     }
     // 更新所有照片的扫光时间
     photoObjects.forEach(obj => {
@@ -458,7 +622,16 @@ const TreeSystem: React.FC = () => {
     <group ref={groupRef}>
       <mesh ref={trunkRef} position={[0, -1.5, 0]}><cylinderGeometry args={[0.2, 0.9, 16, 8]} /><meshStandardMaterial color="#3E2723" roughness={0.9} metalness={0.1} /></mesh>
       <points ref={pointsRef}> <bufferGeometry> <bufferAttribute attach="attributes-position" count={foliageData.current.length / 3} array={foliageData.current} itemSize={3} /> <bufferAttribute attach="attributes-size" count={foliageData.sizes.length} array={foliageData.sizes} itemSize={1} /> </bufferGeometry> <foliageMaterial transparent depthWrite={false} blending={THREE.AdditiveBlending} /> </points>
-      <instancedMesh ref={lightsRef} args={[undefined, undefined, lightsData.count]}><sphereGeometry args={[0.05, 8, 8]} /><meshStandardMaterial color="#ffddaa" emissive="#ffbb00" emissiveIntensity={3} toneMapped={false} /></instancedMesh>
+      {/* 彩色圣诞彩灯 */}
+      <instancedMesh ref={lightsRef} args={[undefined, undefined, lightsData.count]}>
+        <sphereGeometry args={[0.08, 8, 8]} />
+        <meshStandardMaterial 
+          color="#ffffff" 
+          emissive="#ffffff" 
+          emissiveIntensity={2} 
+          toneMapped={false} 
+        />
+      </instancedMesh>
       {photoObjects.map((obj, index) => (
         <group key={obj.id} ref={(el) => { obj.ref.current = el; }}>
           <PolaroidPhoto

@@ -6,7 +6,7 @@ import TechEffects from './components/TechEffects';
 import { AnimatePresence, motion } from 'framer-motion';
 
 
-// --- 梦幻光标组件 ---
+// --- 梦幻光标组件 (圣诞主题) ---
 const DreamyCursor: React.FC<{ pointer: PointerCoords | null, progress: number }> = ({ pointer, progress }) => {
     if (!pointer) return null;
     return (
@@ -23,65 +23,128 @@ const DreamyCursor: React.FC<{ pointer: PointerCoords | null, progress: number }
             transition={{ duration: 0.1, ease: "easeOut" }}
             style={{ x: "-50%", y: "-50%" }}
         >
-            {/* 核心光点 */}
-            <div className={`rounded-full transition-all duration-300 ${progress > 0.8 ? 'w-4 h-4 bg-emerald-400 shadow-[0_0_20px_#34d399]' : 'w-2 h-2 bg-amber-200 shadow-[0_0_15px_#fcd34d]'}`} />
+            {/* 核心光点 - 圣诞红绿配色 */}
+            <div className={`rounded-full transition-all duration-300 ${
+                progress > 0.8 
+                    ? 'w-5 h-5 bg-red-500 shadow-[0_0_25px_#ef4444,0_0_50px_#ef4444]' 
+                    : 'w-3 h-3 bg-green-400 shadow-[0_0_20px_#4ade80]'
+            }`} />
 
-            {/* 进度光环 - 魔法符文风格 */}
-            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-16 h-16 rounded-full border border-white/20 animate-spin-slow"></div>
+            {/* 雪花装饰环 */}
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-20 h-20">
+                {[0, 60, 120, 180, 240, 300].map((angle, i) => (
+                    <div 
+                        key={i}
+                        className="absolute top-1/2 left-1/2 w-1 h-1 bg-white rounded-full opacity-60"
+                        style={{
+                            transform: `translate(-50%, -50%) rotate(${angle}deg) translateY(-28px)`,
+                            animation: `twinkle ${1 + i * 0.2}s ease-in-out infinite`
+                        }}
+                    />
+                ))}
+            </div>
 
-            <svg className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-12 h-12 -rotate-90 overflow-visible">
+            <svg className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-14 h-14 -rotate-90 overflow-visible">
                 <defs>
-                    <linearGradient id="magicGradient" x1="0%" y1="0%" x2="100%" y2="0%">
-                        <stop offset="0%" stopColor="#34d399" />
-                        <stop offset="100%" stopColor="#fbbf24" />
+                    <linearGradient id="christmasGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                        <stop offset="0%" stopColor="#ef4444" />
+                        <stop offset="50%" stopColor="#fbbf24" />
+                        <stop offset="100%" stopColor="#22c55e" />
                     </linearGradient>
                     <filter id="glow">
-                        <feGaussianBlur stdDeviation="2.5" result="coloredBlur" />
+                        <feGaussianBlur stdDeviation="3" result="coloredBlur" />
                         <feMerge><feMergeNode in="coloredBlur" /><feMergeNode in="SourceGraphic" /></feMerge>
                     </filter>
                 </defs>
                 {/* 倒计时圆环 */}
                 <circle
-                    cx="24" cy="24" r="20"
+                    cx="28" cy="28" r="24"
                     fill="none"
-                    stroke="url(#magicGradient)"
-                    strokeWidth="3"
+                    stroke="url(#christmasGradient)"
+                    strokeWidth="4"
                     strokeLinecap="round"
-                    strokeDasharray="125.6"
-                    strokeDashoffset={125.6 * (1 - progress)}
+                    strokeDasharray="150.8"
+                    strokeDashoffset={150.8 * (1 - progress)}
                     filter="url(#glow)"
                     className="transition-[stroke-dashoffset] duration-75 ease-linear"
                 />
             </svg>
 
-            {/* 粒子拖尾装饰 (CSS 动画) */}
-            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-24 h-24 bg-gradient-to-r from-emerald-500/10 to-amber-500/10 rounded-full blur-xl animate-pulse"></div>
+            {/* 发光光晕 */}
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-28 h-28 bg-gradient-radial from-red-500/20 via-green-500/10 to-transparent rounded-full blur-xl animate-pulse"></div>
         </motion.div>
     );
 };
 
-// --- 照片弹窗 ---
+// --- 照片弹窗 (圣诞主题) ---
 const PhotoModal: React.FC<{ url: string | null, onClose: () => void }> = ({ url, onClose }) => {
     if (!url) return null;
     return (
         <motion.div
             id="photo-modal-backdrop"
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[100] bg-black/90 flex items-center justify-center p-8 backdrop-blur-sm"
+            className="fixed inset-0 z-[100] bg-black/95 flex items-center justify-center p-4 md:p-8 backdrop-blur-md"
             onClick={onClose}
         >
+            {/* 装饰性雪花背景 */}
+            <div className="absolute inset-0 overflow-hidden pointer-events-none">
+                {[...Array(20)].map((_, i) => (
+                    <motion.div
+                        key={i}
+                        className="absolute w-2 h-2 bg-white/20 rounded-full"
+                        initial={{ 
+                            x: Math.random() * window.innerWidth, 
+                            y: -20,
+                            scale: Math.random() * 0.5 + 0.5
+                        }}
+                        animate={{ 
+                            y: window.innerHeight + 20,
+                            x: Math.random() * window.innerWidth
+                        }}
+                        transition={{ 
+                            duration: Math.random() * 5 + 5, 
+                            repeat: Infinity,
+                            delay: Math.random() * 3
+                        }}
+                    />
+                ))}
+            </div>
+            
             <motion.div
-                initial={{ scale: 0.8, y: 50, rotate: -5 }}
+                initial={{ scale: 0.7, y: 60, rotate: -8 }}
                 animate={{ scale: 1, y: 0, rotate: 0 }}
-                exit={{ scale: 0.5, opacity: 0, y: 100 }}
-                transition={{ type: "spring", stiffness: 300, damping: 20 }}
-                className="relative max-w-4xl max-h-full bg-white p-3 rounded shadow-[0_0_50px_rgba(255,215,0,0.3)] border-8 border-white"
+                exit={{ scale: 0.5, opacity: 0, y: 100, rotate: 5 }}
+                transition={{ type: "spring", stiffness: 250, damping: 20 }}
+                className="relative max-w-4xl max-h-full"
                 onClick={(e) => e.stopPropagation()}
             >
-                <img src={url} alt="Memory" className="max-h-[80vh] object-contain rounded shadow-inner" />
-                <div className="absolute -bottom-12 w-full text-center text-red-300/70 cinzel text-sm">
-                    ❄️ Precious Moment ❄️ Tap to close
+                {/* 相框外发光 */}
+                <div className="absolute -inset-2 bg-gradient-to-r from-red-500/30 via-amber-500/30 to-green-500/30 rounded-lg blur-xl"></div>
+                
+                {/* 相框 */}
+                <div className="relative bg-white p-3 md:p-4 rounded-lg shadow-[0_0_60px_rgba(255,215,0,0.4)]">
+                    <img 
+                        src={url} 
+                        alt="Memory" 
+                        className="max-h-[75vh] object-contain rounded shadow-inner" 
+                    />
+                    
+                    {/* 相框装饰角 */}
+                    <div className="absolute top-1 left-1 w-4 h-4 border-t-2 border-l-2 border-red-400/50 rounded-tl"></div>
+                    <div className="absolute top-1 right-1 w-4 h-4 border-t-2 border-r-2 border-green-400/50 rounded-tr"></div>
+                    <div className="absolute bottom-1 left-1 w-4 h-4 border-b-2 border-l-2 border-green-400/50 rounded-bl"></div>
+                    <div className="absolute bottom-1 right-1 w-4 h-4 border-b-2 border-r-2 border-red-400/50 rounded-br"></div>
                 </div>
+                
+                {/* 提示文字 */}
+                <motion.div 
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ delay: 0.5 }}
+                    className="absolute -bottom-10 w-full text-center text-amber-200/60 cinzel text-xs md:text-sm tracking-wider"
+                >
+                    🎄 Precious Memory 🎄
+                </motion.div>
             </motion.div>
         </motion.div>
     );
@@ -119,17 +182,54 @@ const AppContent: React.FC = () => {
             {webcamEnabled && <TechEffects />}
 
             {/* UI 层 (z-30) */}
-            <div className="absolute inset-0 z-30 pointer-events-none flex flex-col justify-between p-8">
+            <div className="absolute inset-0 z-30 pointer-events-none flex flex-col justify-between p-6 md:p-8">
                 <header className="flex justify-between items-start">
-                    <div>
-                        <h1 className="text-4xl md:text-6xl font-bold cinzel text-transparent bg-clip-text bg-gradient-to-r from-red-300 via-green-200 to-amber-100 drop-shadow-[0_0_20px_rgba(255,255,255,0.5)]">
-                            🎄 CHRISTMAS MEMORIES ❄️
+                    <div className="relative">
+                        {/* 装饰性光晕背景 */}
+                        <div className="absolute -inset-4 bg-gradient-to-r from-red-500/10 via-transparent to-green-500/10 blur-2xl rounded-full"></div>
+                        
+                        <h1 className="relative text-3xl md:text-5xl lg:text-6xl font-bold cinzel text-transparent bg-clip-text bg-gradient-to-r from-red-400 via-amber-200 to-green-400 drop-shadow-[0_0_30px_rgba(255,200,100,0.5)]">
+                            🎄 Christmas Memories ❄️
                         </h1>
-                        <p className="text-red-400/80 cinzel tracking-widest text-sm mt-2">
-                            {state === 'CHAOS' ? '✨ SCATTERED MEMORIES // EXPLORE YOUR JOURNEY ✨' : '🎁 MEMORY TREE // TIMELINE OF LOVE 🎁'}
-                        </p>
+                        
+                        <motion.p 
+                            key={state}
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            className="relative text-amber-200/90 cinzel tracking-[0.2em] text-xs md:text-sm mt-3 flex items-center gap-2"
+                        >
+                            {state === 'CHAOS' ? (
+                                <>
+                                    <span className="w-2 h-2 bg-amber-400 rounded-full animate-pulse"></span>
+                                    SCATTERED MEMORIES · EXPLORE YOUR JOURNEY
+                                    <span className="w-2 h-2 bg-amber-400 rounded-full animate-pulse"></span>
+                                </>
+                            ) : (
+                                <>
+                                    <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></span>
+                                    MEMORY TREE · TIMELINE OF LOVE
+                                    <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></span>
+                                </>
+                            )}
+                        </motion.p>
                     </div>
                 </header>
+                
+                {/* 底部提示 */}
+                <footer className="text-center">
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        transition={{ delay: 2 }}
+                        className="text-white/40 text-xs cinzel tracking-wider"
+                    >
+                        {webcamEnabled ? (
+                            <span>✋ 握拳聚合 · 张开分散 · 指向选择</span>
+                        ) : (
+                            <span>🖱️ 拖拽旋转 · 滚轮缩放</span>
+                        )}
+                    </motion.div>
+                </footer>
             </div>
 
             {/* 光标层 (z-200) */}
