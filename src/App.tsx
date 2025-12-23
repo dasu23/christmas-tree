@@ -195,7 +195,7 @@ const PhotoModal: React.FC<{ url: string | null, onClose: () => void }> = ({ url
           transition={{ delay: 0.5 }}
           className="absolute -bottom-10 w-full text-center text-amber-200/60 cinzel text-xs md:text-sm tracking-wider"
         >
-          🎄 {imageError ? 'Memory Loading Failed' : `Precious Memory ${url === './1.jpg' ? '1' : '2'}/2`} 🎄
+          🎄 {imageError ? 'Memory Loading Failed' : `Precious Memory ${url === '/1.jpg' ? '1' : '2'}/2`} 🎄
         </motion.div>
       </motion.div>
     </motion.div>
@@ -246,7 +246,7 @@ const AppContent: React.FC = () => {
   
   const [showHint, setShowHint] = useState(true);
   const [photoIndex, setPhotoIndex] = useState(0); // 0: 无照片, 1: 第一张, 2: 第二张
-  const photos = ['./1.jpg', './2.jpg'];
+  const photos = ['/1.jpg', '/2.jpg'];
 
   // 隐藏提示
   useEffect(() => {
