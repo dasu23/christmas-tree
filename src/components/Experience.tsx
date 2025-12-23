@@ -1,12 +1,12 @@
-
-import React, { useContext, useRef, useMemo } from 'react';
+import React, { useContext, useRef, useMemo, useEffect } from 'react';
 import { Canvas, useFrame, extend } from '@react-three/fiber';
 import { OrbitControls, Stars, Sparkles, shaderMaterial, Float } from '@react-three/drei';
 import { EffectComposer, Bloom, Vignette, ChromaticAberration } from '@react-three/postprocessing';
 import { BlendFunction } from 'postprocessing';
 import * as THREE from 'three';
-import TreeSystem from './TreeSystem';
+import ParticleSystem from './ParticleSystem';
 import CrystalOrnaments from './CrystalOrnaments';
+import AnimationController from './AnimationController';
 import { TreeContext, TreeContextType } from '../types';
 
 // --- 极光材质 ---
@@ -26,7 +26,6 @@ const AuroraMaterial = shaderMaterial(
     varying vec2 vUv;
     varying vec3 vPosition;
     
-    // 简化的噪声函数
     float noise(vec2 p) {
       return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453);
     }
@@ -58,23 +57,18 @@ const AuroraMaterial = shaderMaterial(
     void main() {
       vec2 uv = vUv;
       
-      // 波动的极光
       float n1 = fbm(vec2(uv.x * 3.0 + uTime * 0.1, uv.y * 2.0));
       float n2 = fbm(vec2(uv.x * 2.0 - uTime * 0.15, uv.y * 3.0 + uTime * 0.05));
       
-      // 颜色混合
-      vec3 color1 = vec3(0.1, 0.8, 0.4); // 绿色
-      vec3 color2 = vec3(0.2, 0.4, 0.9); // 蓝色
-      vec3 color3 = vec3(0.8, 0.2, 0.6); // 粉紫色
+      vec3 color1 = vec3(0.1, 0.8, 0.4);
+      vec3 color2 = vec3(0.2, 0.4, 0.9);
+      vec3 color3 = vec3(0.8, 0.2, 0.6);
       
       vec3 color = mix(color1, color2, n1);
       color = mix(color, color3, n2 * 0.5);
       
-      // 垂直渐变 - 底部更透明
       float alpha = smoothstep(0.0, 0.5, uv.y) * 0.3;
       alpha *= (n1 + n2) * 0.5;
-      
-      // 边缘淡出
       alpha *= smoothstep(0.0, 0.2, uv.x) * smoothstep(1.0, 0.8, uv.x);
       
       gl_FragColor = vec4(color, alpha * 0.4);
@@ -180,7 +174,6 @@ const FallingSnow: React.FC = () => {
 const SnowGround: React.FC = () => {
   return (
     <group>
-      {/* 主雪地 */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -10.5, 0]} receiveShadow>
         <circleGeometry args={[30, 64]} />
         <meshStandardMaterial 
@@ -192,7 +185,6 @@ const SnowGround: React.FC = () => {
         />
       </mesh>
       
-      {/* 雪堆 */}
       {[...Array(8)].map((_, i) => {
         const angle = (i / 8) * Math.PI * 2;
         const dist = 8 + Math.random() * 4;
@@ -215,7 +207,6 @@ const SnowGround: React.FC = () => {
 const FloatingDecor: React.FC = () => {
   return (
     <>
-      {/* 浮动的雪花装饰 */}
       {[...Array(6)].map((_, i) => (
         <Float key={i} speed={1.5} rotationIntensity={0.5} floatIntensity={2}>
           <mesh position={[
@@ -238,7 +229,8 @@ const FloatingDecor: React.FC = () => {
   );
 };
 
-const Rig = () => {
+// --- 相机控制 ---
+const CameraRig: React.FC = () => {
   const { state, zoomOffset } = useContext(TreeContext) as TreeContextType;
   
   useFrame((state3d) => {
@@ -253,10 +245,22 @@ const Rig = () => {
     state3d.camera.lookAt(0, 1, 0);
   });
   
+  // 监听重置相机事件
+  useEffect(() => {
+    const handleReset = () => {
+      // 相机重置会在下一帧自动处理
+    };
+    window.addEventListener('resetCamera', handleReset);
+    return () => window.removeEventListener('resetCamera', handleReset);
+  }, []);
+  
   return null;
 };
 
+// --- 主Experience组件 ---
 const Experience: React.FC = () => {
+  const { particleConfig, gestureState } = useContext(TreeContext) as TreeContextType;
+  
   return (
     <Canvas
       shadows
@@ -278,7 +282,7 @@ const Experience: React.FC = () => {
       {/* 环境光 */}
       <ambientLight intensity={0.25} color="#1a1a3a" />
       
-      {/* 主聚光灯 - 温暖的顶部光 */}
+      {/* 主聚光灯 */}
       <spotLight
         position={[5, 30, 15]}
         angle={0.35}
@@ -329,12 +333,20 @@ const Experience: React.FC = () => {
       {/* 半球环境光 */}
       <hemisphereLight args={['#1a2a4a', '#0a150a', 0.5]} />
 
-      {/* 主场景内容 */}
-      <group position={[0, -2, 0]}>
-        <TreeSystem />
-        <CrystalOrnaments />
-        <SnowGround />
-      </group>
+      {/* 动画控制器 */}
+      <AnimationController>
+        {/* 主场景内容 */}
+        <group position={[0, -2, 0]}>
+          {/* 新的粒子系统 */}
+          <ParticleSystem config={particleConfig} />
+          
+          {/* 装饰物 */}
+          <CrystalOrnaments />
+          
+          {/* 雪地 */}
+          <SnowGround />
+        </group>
+      </AnimationController>
 
       {/* 轨道控制 */}
       <OrbitControls
@@ -349,7 +361,8 @@ const Experience: React.FC = () => {
         dampingFactor={0.05}
         rotateSpeed={0.5}
       />
-      <Rig />
+      
+      <CameraRig />
 
       {/* 后处理效果 */}
       <EffectComposer enableNormalPass={false}>
