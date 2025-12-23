@@ -203,11 +203,11 @@ const BethlehemStar: React.FC<{ position: [number, number, number]; scale: numbe
               rotation={[Math.PI / 2, 0, angle]}
               position={[0, 0, 0]}
             >
-              <coneGeometry args={[0.03, length, 8, 1, true]} />
+              <coneGeometry args={[0.02, length, 6, 1, true]} />
               <meshBasicMaterial 
                 color="#fffacd"
                 transparent 
-                opacity={isLong ? 0.5 : 0.3}
+                opacity={isLong ? 0.4 : 0.25}
                 side={THREE.DoubleSide}
                 blending={THREE.AdditiveBlending}
               />
@@ -276,11 +276,11 @@ const BethlehemStar: React.FC<{ position: [number, number, number]; scale: numbe
       />
       
       {/* 柔和的外层光晕 - 使用sprite避免方块 */}
-      <sprite scale={[3.5, 3.5, 1]}>
+      <sprite scale={[2.8, 2.8, 1]}>
         <spriteMaterial 
           color="#ffefd5"
           transparent 
-          opacity={0.2}
+          opacity={0.15}
           blending={THREE.AdditiveBlending}
         />
       </sprite>

@@ -52,7 +52,7 @@ const FoliageMaterial = shaderMaterial(
       gl_Position = projectionMatrix * mvPosition;
       
       float sizeMultiplier = mix(1.3, 0.5, vHeight);
-      gl_PointSize = size * uPixelRatio * sizeMultiplier * (100.0 / -mvPosition.z);
+      gl_PointSize = size * uPixelRatio * sizeMultiplier * (150.0 / -mvPosition.z);
       
       vBlink = sin(uTime * 1.5 + position.y * 3.0 + position.x * 2.0);
     }
@@ -475,7 +475,7 @@ const TreeSystem: React.FC = () => {
       foliageTree[i3] = Math.cos(angle) * (r + spiralOffset); 
       foliageTree[i3 + 1] = h - 7.5;
       foliageTree[i3 + 2] = Math.sin(angle) * (r + spiralOffset); 
-      sizes[i] = Math.random() * 2.0 + 0.5; 
+      sizes[i] = Math.random() * 3.5 + 1.0; 
     }
 
     // 树枝层数据
@@ -506,6 +506,7 @@ const TreeSystem: React.FC = () => {
     }
 
     const photoFiles = [
+      "1.jpg", "2.jpg",
       "2024_06_1.jpg", "2024_07_1.jpg", "2024_07_2.jpg",
       "2024_09_1.jpg", "2024_09_2.jpg", "2024_09_3.jpg",
       "2024_09_4.jpg", "2024_09_5.jpg", "2024_09_6.jpg",
@@ -521,8 +522,17 @@ const TreeSystem: React.FC = () => {
 
     const photos: ParticleData[] = photoFiles.map((fileName, i) => {
       const parts = fileName.split('_');
-      const year = parseInt(parts[0]);
-      const month = parts[1];
+      let year = 2024;
+      let month = '01';
+      
+      // 处理特殊文件名
+      if (fileName === '1.jpg' || fileName === '2.jpg') {
+        year = 2024;
+        month = '12';
+      } else if (parts.length >= 2) {
+        year = parseInt(parts[0]);
+        month = parts[1];
+      }
       
       const t = i / (photoFiles.length - 1);
       const h = t * 15 - 7;
@@ -532,6 +542,11 @@ const TreeSystem: React.FC = () => {
       const phi = Math.acos(1 - 2 * (i + 0.5) / photoFiles.length);
       const theta = Math.PI * (1 + Math.sqrt(5)) * (i + 0.5);
       const r = 13 + Math.random() * 4;
+
+      // 根据文件名决定路径
+      const imagePath = (fileName === '1.jpg' || fileName === '2.jpg') 
+        ? `./${fileName}` 
+        : `./photos/${fileName}`;
 
       return {
         id: `photo-${i}`,
@@ -547,7 +562,7 @@ const TreeSystem: React.FC = () => {
         chaosRot: [(Math.random() - 0.5) * 0.2, (Math.random() - 0.5) * 0.2, (Math.random() - 0.5) * 0.1],
         treeRot: [0, -angle + Math.PI / 2, 0],
         scale: 0.85 + Math.random() * 0.3,
-        image: `./photos/${fileName}`,
+        image: imagePath,
         color: 'white'
       };
     });
@@ -718,10 +733,12 @@ const TreeSystem: React.FC = () => {
         const fx = THREE.MathUtils.lerp(cRotatedX, r * Math.cos(currentAngle), ease);
         const fz = THREE.MathUtils.lerp(cRotatedZ, r * Math.sin(currentAngle), ease);
         
-        // 更强烈的闪烁
+        // 更强烈的闪烁 - 不同频率的闪烁效果
         const phase = i * 0.7 + Math.floor(i / 8) * 0.5;
-        const twinkle = Math.pow(Math.sin(time * 5.0 + phase) * 0.5 + 0.5, 0.3);
-        const scale = 0.6 + twinkle * 0.8;
+        const fastTwinkle = Math.pow(Math.sin(time * 8.0 + phase) * 0.5 + 0.5, 0.2);
+        const slowTwinkle = Math.pow(Math.sin(time * 2.0 + phase * 1.5) * 0.5 + 0.5, 0.5);
+        const combinedTwinkle = (fastTwinkle * 0.7 + slowTwinkle * 0.3);
+        const scale = 0.4 + combinedTwinkle * 1.2;
         
         dummy.position.set(fx, y, fz);
         dummy.scale.setScalar(scale);
@@ -729,7 +746,7 @@ const TreeSystem: React.FC = () => {
         lightsRef.current.setMatrixAt(i, dummy.matrix);
         
         const colorIndex = i % lightColors.length;
-        const intensity = 0.5 + twinkle * 0.8;
+        const intensity = 0.3 + combinedTwinkle * 1.2;
         lightsRef.current.setColorAt(i, lightColors[colorIndex].clone().multiplyScalar(intensity));
       }
       lightsRef.current.instanceMatrix.needsUpdate = true;
