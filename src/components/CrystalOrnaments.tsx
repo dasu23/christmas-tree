@@ -1,26 +1,31 @@
 
-import React, { useContext, useMemo, useRef } from 'react';
-import { useFrame } from '@react-three/fiber';
+import React, { useContext, useMemo, useRef, useState } from 'react';
+import { useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import { TreeContext, TreeContextType } from '../types';
 
 // 糖果棒组件
 const CandyCane: React.FC<{ position: THREE.Vector3; scale: number; rotation: number }> = ({ position, scale, rotation }) => {
+  const groupRef = useRef<THREE.Group>(null);
+  
+  useFrame((state) => {
+    if (groupRef.current) {
+      groupRef.current.rotation.z = Math.PI / 6 + Math.sin(state.clock.elapsedTime * 2 + rotation) * 0.05;
+    }
+  });
+  
   return (
-    <group position={position} scale={scale} rotation={[0, rotation, Math.PI / 6]}>
-      {/* 主杆 */}
+    <group ref={groupRef} position={position} scale={scale} rotation={[0, rotation, Math.PI / 6]}>
       <mesh position={[0, 0.3, 0]}>
         <cylinderGeometry args={[0.05, 0.05, 0.6, 8]} />
         <meshStandardMaterial color="#ffffff" roughness={0.3} metalness={0.1} />
       </mesh>
-      {/* 红色条纹 */}
       {[0, 0.15, 0.3, 0.45].map((y, i) => (
         <mesh key={i} position={[0, y + 0.05, 0]}>
           <cylinderGeometry args={[0.052, 0.052, 0.08, 8]} />
-          <meshStandardMaterial color="#cc0000" roughness={0.3} emissive="#cc0000" emissiveIntensity={0.2} />
+          <meshStandardMaterial color="#cc0000" roughness={0.3} emissive="#cc0000" emissiveIntensity={0.3} />
         </mesh>
       ))}
-      {/* 弯钩 */}
       <mesh position={[0.08, 0.58, 0]} rotation={[0, 0, Math.PI / 2]}>
         <torusGeometry args={[0.08, 0.05, 8, 12, Math.PI]} />
         <meshStandardMaterial color="#ffffff" roughness={0.3} metalness={0.1} />
@@ -35,38 +40,27 @@ const Bell: React.FC<{ position: THREE.Vector3; scale: number; color: string }> 
   
   useFrame((state) => {
     if (bellRef.current) {
-      // 轻微摇摆动画
-      bellRef.current.rotation.z = Math.sin(state.clock.elapsedTime * 2 + position.x * 10) * 0.1;
+      bellRef.current.rotation.z = Math.sin(state.clock.elapsedTime * 3 + position.x * 10) * 0.15;
     }
   });
   
   return (
     <group ref={bellRef} position={position} scale={scale}>
-      {/* 铃铛主体 */}
       <mesh>
         <sphereGeometry args={[0.15, 16, 12, 0, Math.PI * 2, 0, Math.PI * 0.7]} />
-        <meshStandardMaterial 
-          color={color} 
-          roughness={0.2} 
-          metalness={0.8}
-          emissive={color}
-          emissiveIntensity={0.3}
-        />
+        <meshStandardMaterial color={color} roughness={0.15} metalness={0.9} emissive={color} emissiveIntensity={0.4} />
       </mesh>
-      {/* 铃铛底部 */}
       <mesh position={[0, -0.05, 0]}>
         <cylinderGeometry args={[0.15, 0.18, 0.05, 16]} />
-        <meshStandardMaterial color={color} roughness={0.2} metalness={0.8} />
+        <meshStandardMaterial color={color} roughness={0.15} metalness={0.9} />
       </mesh>
-      {/* 铃舌 */}
       <mesh position={[0, -0.08, 0]}>
         <sphereGeometry args={[0.04, 8, 8]} />
-        <meshStandardMaterial color="#333333" roughness={0.5} metalness={0.9} />
+        <meshStandardMaterial color="#222222" roughness={0.4} metalness={0.95} />
       </mesh>
-      {/* 顶部环 */}
       <mesh position={[0, 0.12, 0]} rotation={[Math.PI / 2, 0, 0]}>
         <torusGeometry args={[0.03, 0.015, 8, 16]} />
-        <meshStandardMaterial color={color} roughness={0.2} metalness={0.8} />
+        <meshStandardMaterial color={color} roughness={0.15} metalness={0.9} />
       </mesh>
     </group>
   );
@@ -74,58 +68,82 @@ const Bell: React.FC<{ position: THREE.Vector3; scale: number; color: string }> 
 
 // 礼物盒组件
 const GiftBox: React.FC<{ position: THREE.Vector3; scale: number; color: string; ribbonColor: string }> = ({ position, scale, color, ribbonColor }) => {
+  const boxRef = useRef<THREE.Group>(null);
+  const [hovered, setHovered] = useState(false);
+  
+  useFrame((state) => {
+    if (boxRef.current) {
+      const targetY = hovered ? position.y + 0.3 : position.y;
+      boxRef.current.position.y = THREE.MathUtils.lerp(boxRef.current.position.y, targetY, 0.1);
+      if (hovered) {
+        boxRef.current.rotation.y += 0.02;
+      }
+    }
+  });
+  
   return (
-    <group position={position} scale={scale}>
-      {/* 盒子主体 */}
-      <mesh>
+    <group 
+      ref={boxRef} 
+      position={position} 
+      scale={scale}
+      onPointerOver={() => setHovered(true)}
+      onPointerOut={() => setHovered(false)}
+    >
+      <mesh castShadow>
         <boxGeometry args={[0.5, 0.4, 0.5]} />
         <meshStandardMaterial color={color} roughness={0.4} metalness={0.1} />
       </mesh>
-      {/* 水平丝带 */}
-      <mesh position={[0, 0, 0]}>
+      <mesh>
         <boxGeometry args={[0.52, 0.08, 0.52]} />
-        <meshStandardMaterial color={ribbonColor} roughness={0.3} metalness={0.3} emissive={ribbonColor} emissiveIntensity={0.2} />
+        <meshStandardMaterial color={ribbonColor} roughness={0.3} metalness={0.4} emissive={ribbonColor} emissiveIntensity={hovered ? 0.5 : 0.2} />
       </mesh>
-      {/* 垂直丝带 */}
-      <mesh position={[0, 0, 0]}>
+      <mesh>
         <boxGeometry args={[0.08, 0.42, 0.52]} />
-        <meshStandardMaterial color={ribbonColor} roughness={0.3} metalness={0.3} emissive={ribbonColor} emissiveIntensity={0.2} />
+        <meshStandardMaterial color={ribbonColor} roughness={0.3} metalness={0.4} emissive={ribbonColor} emissiveIntensity={hovered ? 0.5 : 0.2} />
       </mesh>
-      {/* 蝴蝶结 */}
       <group position={[0, 0.25, 0]}>
-        <mesh position={[-0.08, 0, 0]} rotation={[0, 0, Math.PI / 4]}>
-          <sphereGeometry args={[0.08, 8, 8]} />
+        <mesh position={[-0.1, 0, 0]} rotation={[0, 0, Math.PI / 4]}>
+          <sphereGeometry args={[0.1, 12, 12]} />
           <meshStandardMaterial color={ribbonColor} roughness={0.3} />
         </mesh>
-        <mesh position={[0.08, 0, 0]} rotation={[0, 0, -Math.PI / 4]}>
-          <sphereGeometry args={[0.08, 8, 8]} />
+        <mesh position={[0.1, 0, 0]} rotation={[0, 0, -Math.PI / 4]}>
+          <sphereGeometry args={[0.1, 12, 12]} />
           <meshStandardMaterial color={ribbonColor} roughness={0.3} />
         </mesh>
         <mesh>
-          <sphereGeometry args={[0.04, 8, 8]} />
+          <sphereGeometry args={[0.05, 8, 8]} />
           <meshStandardMaterial color={ribbonColor} roughness={0.3} />
         </mesh>
       </group>
+      
+      {/* 发光效果 */}
+      {hovered && (
+        <pointLight intensity={2} color={ribbonColor} distance={3} decay={2} />
+      )}
     </group>
   );
 };
 
-// 五角星组件
+// 发光五角星组件
 const StarTopper: React.FC<{ position: [number, number, number]; scale: number }> = ({ position, scale }) => {
   const starRef = useRef<THREE.Group>(null);
   const glowRef = useRef<THREE.PointLight>(null);
+  const raysRef = useRef<THREE.Group>(null);
   
   useFrame((state) => {
+    const t = state.clock.elapsedTime;
     if (starRef.current) {
-      starRef.current.rotation.y += 0.01;
+      starRef.current.rotation.y += 0.015;
     }
     if (glowRef.current) {
-      // 脉冲光芒
-      glowRef.current.intensity = 3 + Math.sin(state.clock.elapsedTime * 3) * 1.5;
+      glowRef.current.intensity = 5 + Math.sin(t * 4) * 2;
+    }
+    if (raysRef.current) {
+      raysRef.current.rotation.z = t * 0.5;
+      raysRef.current.scale.setScalar(1 + Math.sin(t * 3) * 0.1);
     }
   });
   
-  // 创建五角星形状
   const starShape = useMemo(() => {
     const shape = new THREE.Shape();
     const outerRadius = 0.5;
@@ -148,27 +166,96 @@ const StarTopper: React.FC<{ position: [number, number, number]; scale: number }
     <group ref={starRef} position={position} scale={scale}>
       {/* 主星星 */}
       <mesh rotation={[Math.PI / 2, 0, 0]}>
-        <extrudeGeometry args={[starShape, { depth: 0.1, bevelEnabled: true, bevelThickness: 0.02, bevelSize: 0.02 }]} />
+        <extrudeGeometry args={[starShape, { depth: 0.15, bevelEnabled: true, bevelThickness: 0.03, bevelSize: 0.03 }]} />
         <meshStandardMaterial 
           color="#ffd700" 
           emissive="#ffaa00" 
-          emissiveIntensity={2}
-          roughness={0.1}
+          emissiveIntensity={3}
+          roughness={0.05}
           metalness={1.0}
           toneMapped={false}
         />
       </mesh>
       
+      {/* 内核发光球 */}
+      <mesh>
+        <sphereGeometry args={[0.15, 16, 16]} />
+        <meshBasicMaterial color="#ffffff" />
+      </mesh>
+      
       {/* 发光点 */}
-      <pointLight ref={glowRef} intensity={3} color="#ffdd00" distance={15} decay={2} />
+      <pointLight ref={glowRef} intensity={5} color="#ffdd00" distance={20} decay={2} />
       
       {/* 光芒射线 */}
-      {[0, 72, 144, 216, 288].map((angle, i) => (
-        <mesh key={i} rotation={[0, 0, (angle * Math.PI) / 180]} position={[0, 0, 0.1]}>
-          <planeGeometry args={[0.02, 1.2]} />
-          <meshBasicMaterial color="#ffff88" transparent opacity={0.4} side={THREE.DoubleSide} />
-        </mesh>
-      ))}
+      <group ref={raysRef}>
+        {[...Array(8)].map((_, i) => (
+          <mesh key={i} rotation={[0, 0, (i * Math.PI) / 4]} position={[0, 0, 0.1]}>
+            <planeGeometry args={[0.03, 1.5]} />
+            <meshBasicMaterial color="#ffff99" transparent opacity={0.5} side={THREE.DoubleSide} blending={THREE.AdditiveBlending} />
+          </mesh>
+        ))}
+      </group>
+      
+      {/* 光晕 */}
+      <sprite scale={[3, 3, 1]}>
+        <spriteMaterial color="#ffd700" transparent opacity={0.3} blending={THREE.AdditiveBlending} />
+      </sprite>
+    </group>
+  );
+};
+
+// 发光圣诞球
+const GlowingBauble: React.FC<{ 
+  position: THREE.Vector3; 
+  scale: number; 
+  color: string; 
+  metallic?: boolean;
+}> = ({ position, scale, color, metallic = false }) => {
+  const meshRef = useRef<THREE.Mesh>(null);
+  const [hovered, setHovered] = useState(false);
+  
+  useFrame((state) => {
+    if (meshRef.current) {
+      const targetScale = hovered ? scale * 1.3 : scale;
+      meshRef.current.scale.lerp(new THREE.Vector3(targetScale, targetScale, targetScale), 0.1);
+    }
+  });
+  
+  return (
+    <group position={position}>
+      {/* 挂钩 */}
+      <mesh position={[0, scale * 1.2, 0]}>
+        <torusGeometry args={[scale * 0.15, scale * 0.03, 8, 16, Math.PI]} />
+        <meshStandardMaterial color="#c0c0c0" metalness={0.9} roughness={0.2} />
+      </mesh>
+      
+      {/* 球体 */}
+      <mesh 
+        ref={meshRef}
+        scale={scale}
+        onPointerOver={() => setHovered(true)}
+        onPointerOut={() => setHovered(false)}
+      >
+        <sphereGeometry args={[1, 32, 32]} />
+        <meshStandardMaterial
+          color={color}
+          roughness={metallic ? 0.1 : 0.6}
+          metalness={metallic ? 0.95 : 0.1}
+          emissive={color}
+          emissiveIntensity={hovered ? 0.8 : 0.3}
+        />
+      </mesh>
+      
+      {/* 高光装饰 */}
+      <mesh scale={scale * 0.95}>
+        <sphereGeometry args={[1, 32, 32]} />
+        <meshBasicMaterial color="#ffffff" transparent opacity={0.1} />
+      </mesh>
+      
+      {/* 悬停时的发光效果 */}
+      {hovered && (
+        <pointLight intensity={1.5} color={color} distance={4} decay={2} />
+      )}
     </group>
   );
 };
@@ -176,27 +263,26 @@ const StarTopper: React.FC<{ position: [number, number, number]; scale: number }
 const CrystalOrnaments: React.FC = () => {
   const { state, rotationSpeed, panOffset } = useContext(TreeContext) as TreeContextType;
   const groupRef = useRef<THREE.Group>(null);
-  const ornamentRefs = useRef<THREE.Mesh[]>([]);
+  const ornamentRefs = useRef<(THREE.Group | THREE.Mesh | null)[]>([]);
 
   const progress = useRef(0);
   const treeRotation = useRef(0);
   const currentPan = useRef({ x: 0, y: 0 });
 
   const ornaments = useMemo(() => {
-    const count = 40;
+    const count = 45;
     const items = [];
-
-    // Christmas colors
-    const ballColors = ['#cc0000', '#00cc00', '#0066cc', '#cc6600', '#cc00cc'];
-    const metallicColors = ['#ffd700', '#c0c0c0', '#cd7f32'];
+    
+    const ballColors = ['#cc0000', '#00aa00', '#0055aa', '#cc6600', '#aa00aa', '#008888'];
+    const metallicColors = ['#ffd700', '#c0c0c0', '#cd7f32', '#ff6b6b'];
 
     for (let i = 0; i < count; i++) {
       const t = i / count;
-      const h = t * 13 - 6;
-      const r = (8.5 - h) * 0.6 + 0.3;
-      const angle = t * Math.PI * 13;
+      const h = t * 14 - 6.5;
+      const r = (9 - h) * 0.55 + 0.4;
+      const angle = t * Math.PI * 14;
 
-      const radius = 10 + Math.random() * 12;
+      const radius = 11 + Math.random() * 13;
       const theta = Math.random() * Math.PI * 2;
       const phi = Math.acos(2 * Math.random() - 1);
 
@@ -206,14 +292,13 @@ const CrystalOrnaments: React.FC = () => {
         radius * Math.cos(phi)
       ];
 
-      // 更多种类的装饰
       const typeRand = Math.random();
-      let type: 'bauble' | 'bauble-matte' | 'candy-cane' | 'bell' = 'bauble';
-      if (typeRand > 0.85) type = 'candy-cane';
-      else if (typeRand > 0.7) type = 'bell';
-      else if (typeRand > 0.5) type = 'bauble-matte';
+      let type: 'bauble' | 'bauble-metallic' | 'candy-cane' | 'bell' = 'bauble';
+      if (typeRand > 0.88) type = 'candy-cane';
+      else if (typeRand > 0.75) type = 'bell';
+      else if (typeRand > 0.45) type = 'bauble-metallic';
 
-      const color = typeRand > 0.6 
+      const color = type === 'bauble-metallic' 
         ? metallicColors[Math.floor(Math.random() * metallicColors.length)]
         : ballColors[Math.floor(Math.random() * ballColors.length)];
 
@@ -223,32 +308,32 @@ const CrystalOrnaments: React.FC = () => {
         treeCyl: { h, r, angle },
         type,
         color,
-        scale: Math.random() * 0.15 + 0.12
+        scale: Math.random() * 0.12 + 0.1
       });
     }
     return items;
   }, []);
 
-  // 礼物盒数据
   const gifts = useMemo(() => {
     const giftColors = [
       { box: '#cc0000', ribbon: '#ffd700' },
-      { box: '#00cc00', ribbon: '#ffffff' },
-      { box: '#0066cc', ribbon: '#ffcc00' },
+      { box: '#00aa00', ribbon: '#ffffff' },
+      { box: '#0055aa', ribbon: '#ffcc00' },
       { box: '#9933cc', ribbon: '#00ffcc' },
       { box: '#ff6600', ribbon: '#ffffff' },
+      { box: '#cc0066', ribbon: '#ffd700' },
     ];
     
-    return Array.from({ length: 8 }, (_, i) => {
-      const angle = (i / 8) * Math.PI * 2 + Math.random() * 0.5;
-      const dist = 2 + Math.random() * 2;
+    return Array.from({ length: 10 }, (_, i) => {
+      const angle = (i / 10) * Math.PI * 2 + Math.random() * 0.4;
+      const dist = 2.5 + Math.random() * 2.5;
       return {
         position: new THREE.Vector3(
           Math.cos(angle) * dist,
-          -8.5 + Math.random() * 0.3,
+          -8.5 + Math.random() * 0.2,
           Math.sin(angle) * dist
         ),
-        scale: 0.8 + Math.random() * 0.6,
+        scale: 0.7 + Math.random() * 0.5,
         colors: giftColors[i % giftColors.length],
         rotation: Math.random() * Math.PI * 2
       };
@@ -257,24 +342,20 @@ const CrystalOrnaments: React.FC = () => {
 
   useFrame((state3d, delta) => {
     const targetProgress = state === 'FORMED' ? 1 : 0;
-    progress.current = THREE.MathUtils.damp(progress.current, targetProgress, 2.0, delta);
+    progress.current = THREE.MathUtils.damp(progress.current, targetProgress, 2.5, delta);
     const p = progress.current;
     const ease = p * p * (3 - 2 * p);
 
-    const spinFactor = state === 'FORMED' ? rotationSpeed : 0.05;
+    const spinFactor = state === 'FORMED' ? rotationSpeed : 0.08;
     treeRotation.current += spinFactor * delta;
 
-    const targetPanX = panOffset.x;
-    const targetPanY = panOffset.y;
-
-    currentPan.current.x = THREE.MathUtils.lerp(currentPan.current.x, targetPanX, 0.2);
-    currentPan.current.y = THREE.MathUtils.lerp(currentPan.current.y, targetPanY, 0.2);
+    currentPan.current.x = THREE.MathUtils.lerp(currentPan.current.x, panOffset.x, 0.15);
+    currentPan.current.y = THREE.MathUtils.lerp(currentPan.current.y, panOffset.y, 0.15);
 
     if (groupRef.current) {
       groupRef.current.position.x = currentPan.current.x;
       groupRef.current.position.y = currentPan.current.y;
 
-      // 更新普通装饰物
       ornamentRefs.current.forEach((child, i) => {
         if (!child) return;
         
@@ -292,11 +373,11 @@ const CrystalOrnaments: React.FC = () => {
         const y = THREE.MathUtils.lerp(cy, h, ease);
         const currentR = THREE.MathUtils.lerp(cr, r, ease);
 
-        const vortexTwist = (1 - ease) * 12.0;
+        const vortexTwist = (1 - ease) * 15.0;
         const currentAngle = angle + vortexTwist + treeRotation.current;
 
-        const cRotatedX = cr * Math.cos(cAngle + treeRotation.current * 0.1);
-        const cRotatedZ = cr * Math.sin(cAngle + treeRotation.current * 0.1);
+        const cRotatedX = cr * Math.cos(cAngle + treeRotation.current * 0.12);
+        const cRotatedZ = cr * Math.sin(cAngle + treeRotation.current * 0.12);
 
         const tX = currentR * Math.cos(currentAngle);
         const tZ = currentR * Math.sin(currentAngle);
@@ -305,55 +386,45 @@ const CrystalOrnaments: React.FC = () => {
         child.position.y = y;
         child.position.z = THREE.MathUtils.lerp(cRotatedZ, tZ, ease);
 
-        child.rotation.x += delta * (1 - ease) * 0.5;
-        child.rotation.y += delta * (1 - ease) * 0.5;
+        child.rotation.x += delta * (1 - ease) * 0.3;
+        child.rotation.y += delta * (1 - ease) * 0.3;
       });
     }
   });
 
   return (
     <group ref={groupRef}>
-      {/* 圣诞球装饰 */}
       {ornaments.map((o, i) => {
         if (o.type === 'candy-cane') {
           return (
-            <group key={i} ref={(el) => { if (el) ornamentRefs.current[i] = el as unknown as THREE.Mesh; }}>
-              <CandyCane position={new THREE.Vector3(0, 0, 0)} scale={o.scale * 2} rotation={o.treeCyl.angle} />
+            <group key={i} ref={(el) => { ornamentRefs.current[i] = el; }}>
+              <CandyCane position={new THREE.Vector3(0, 0, 0)} scale={o.scale * 2.5} rotation={o.treeCyl.angle} />
             </group>
           );
         }
         if (o.type === 'bell') {
           return (
-            <group key={i} ref={(el) => { if (el) ornamentRefs.current[i] = el as unknown as THREE.Mesh; }}>
-              <Bell position={new THREE.Vector3(0, 0, 0)} scale={o.scale * 2.5} color={o.color} />
+            <group key={i} ref={(el) => { ornamentRefs.current[i] = el; }}>
+              <Bell position={new THREE.Vector3(0, 0, 0)} scale={o.scale * 3} color={o.color} />
             </group>
           );
         }
-        // 圣诞球
         return (
-          <mesh 
-            key={i} 
-            ref={(el) => { if (el) ornamentRefs.current[i] = el; }}
-            scale={o.scale * 0.8} 
-            castShadow 
-            receiveShadow
-          >
-            <sphereGeometry args={[1, 24, 24]} />
-            <meshStandardMaterial
+          <group key={i} ref={(el) => { ornamentRefs.current[i] = el; }}>
+            <GlowingBauble
+              position={new THREE.Vector3(0, 0, 0)}
+              scale={o.scale * 0.9}
               color={o.color}
-              roughness={o.type === 'bauble-matte' ? 0.7 : 0.15}
-              metalness={o.type === 'bauble-matte' ? 0.1 : 0.9}
-              emissive={o.color}
-              emissiveIntensity={o.type === 'bauble-matte' ? 0.1 : 0.4}
+              metallic={o.type === 'bauble-metallic'}
             />
-          </mesh>
+          </group>
         );
       })}
 
       {/* 顶部五角星 */}
-      <StarTopper position={[0, 9.2, 0]} scale={0.8} />
+      <StarTopper position={[0, 9.5, 0]} scale={0.9} />
 
-      {/* 礼物盒 - 只在 FORMED 状态显示 */}
+      {/* 礼物盒 */}
       {state === 'FORMED' && gifts.map((gift, i) => (
         <group key={`gift-${i}`} rotation={[0, gift.rotation, 0]}>
           <GiftBox 
