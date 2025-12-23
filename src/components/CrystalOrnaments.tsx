@@ -89,11 +89,9 @@ const GiftBox: React.FC<{
   scale: number; 
   color: string; 
   ribbonColor: string;
-  onClick?: () => void;
-}> = ({ position, scale, color, ribbonColor, onClick }) => {
+}> = ({ position, scale, color, ribbonColor }) => {
   const boxRef = useRef<THREE.Group>(null);
   const [hovered, setHovered] = useState(false);
-  const [clicked, setClicked] = useState(false);
   
   useFrame(() => {
     if (boxRef.current) {
@@ -103,44 +101,8 @@ const GiftBox: React.FC<{
       if (hovered) {
         boxRef.current.rotation.y += 0.02;
       }
-      
-      // 点击动画
-      if (clicked) {
-        const scale = 1 + Math.sin(Date.now() * 0.01) * 0.1;
-        boxRef.current.scale.setScalar(scale);
-      } else {
-        boxRef.current.scale.lerp(new THREE.Vector3(1, 1, 1), 0.1);
-      }
     }
   });
-  
-  const handleClick = () => {
-    setClicked(true);
-    setTimeout(() => setClicked(false), 1000);
-    
-    // 播放音效（如果浏览器支持）
-    try {
-      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-      const oscillator = audioContext.createOscillator();
-      const gainNode = audioContext.createGain();
-      
-      oscillator.connect(gainNode);
-      gainNode.connect(audioContext.destination);
-      
-      oscillator.frequency.setValueAtTime(800, audioContext.currentTime);
-      oscillator.frequency.exponentialRampToValueAtTime(400, audioContext.currentTime + 0.1);
-      
-      gainNode.gain.setValueAtTime(0.1, audioContext.currentTime);
-      gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.1);
-      
-      oscillator.start(audioContext.currentTime);
-      oscillator.stop(audioContext.currentTime + 0.1);
-    } catch (e) {
-      console.log('音效播放失败:', e);
-    }
-    
-    onClick?.();
-  };
   
   return (
     <group 
@@ -149,8 +111,6 @@ const GiftBox: React.FC<{
       scale={scale}
       onPointerOver={() => setHovered(true)}
       onPointerOut={() => setHovered(false)}
-      onClick={handleClick}
-      style={{ cursor: 'pointer' }}
     >
       <mesh castShadow>
         <boxGeometry args={[0.5, 0.4, 0.5]} />
@@ -181,45 +141,6 @@ const GiftBox: React.FC<{
       
       {hovered && (
         <pointLight intensity={2} color={ribbonColor} distance={3} decay={2} />
-      )}
-      
-      {/* 礼物盒点击特效 */}
-      {clicked && (
-        <>
-          {/* 粒子爆发 */}
-          {[...Array(12)].map((_, i) => {
-            const angle = (i / 12) * Math.PI * 2;
-            const distance = 0.8;
-            return (
-              <mesh 
-                key={i} 
-                position={[
-                  Math.cos(angle) * distance,
-                  Math.sin(angle) * distance * 0.5,
-                  0.2
-                ]}
-              >
-                <sphereGeometry args={[0.02, 8, 8]} />
-                <meshBasicMaterial 
-                  color={i % 2 === 0 ? "#ffd700" : "#ff6b6b"} 
-                  transparent 
-                  opacity={0.8}
-                />
-              </mesh>
-            );
-          })}
-          
-          {/* 光环效果 */}
-          <mesh position={[0, 0, 0.1]} rotation={[Math.PI / 2, 0, 0]}>
-            <ringGeometry args={[0.3, 0.6, 16]} />
-            <meshBasicMaterial 
-              color="#ffd700" 
-              transparent 
-              opacity={0.4} 
-              side={THREE.DoubleSide}
-            />
-          </mesh>
-        </>
       )}
     </group>
   );
@@ -582,7 +503,7 @@ const GlowingBauble: React.FC<{
 };
 
 const CrystalOrnaments: React.FC = () => {
-  const { state, rotationSpeed, panOffset, setSelectedPhotoUrl } = useContext(TreeContext) as TreeContextType;
+  const { state, rotationSpeed, panOffset } = useContext(TreeContext) as TreeContextType;
   const groupRef = useRef<THREE.Group>(null);
   const ornamentRefs = useRef<(THREE.Group | THREE.Mesh | null)[]>([]);
 
@@ -781,27 +702,16 @@ const CrystalOrnaments: React.FC = () => {
       )}
 
       {/* 礼物盒 */}
-      {state === 'FORMED' && gifts.map((gift, i) => {
-        const handleGiftClick = () => {
-          // 随机选择1.jpg或2.jpg
-          const photos = ['./1.jpg', './2.jpg'];
-          const randomPhoto = photos[Math.floor(Math.random() * photos.length)];
-          console.log(`礼物盒被点击！显示照片: ${randomPhoto}`);
-          setSelectedPhotoUrl(randomPhoto);
-        };
-
-        return (
-          <group key={`gift-${i}`} rotation={[0, gift.rotation, 0]}>
-            <GiftBox 
-              position={gift.position} 
-              scale={gift.scale}
-              color={gift.colors.box}
-              ribbonColor={gift.colors.ribbon}
-              onClick={handleGiftClick}
-            />
-          </group>
-        );
-      })}
+      {state === 'FORMED' && gifts.map((gift, i) => (
+        <group key={`gift-${i}`} rotation={[0, gift.rotation, 0]}>
+          <GiftBox 
+            position={gift.position} 
+            scale={gift.scale}
+            color={gift.colors.box}
+            ribbonColor={gift.colors.ribbon}
+          />
+        </group>
+      ))}
     </group>
   );
 };

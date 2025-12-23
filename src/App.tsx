@@ -114,7 +114,6 @@ const PhotoModal: React.FC<{ url: string | null, onClose: () => void }> = ({ url
       id="photo-modal-backdrop"
       initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
       className="fixed inset-0 z-[100] bg-black/95 flex items-center justify-center p-4 md:p-8 backdrop-blur-md"
-      onClick={onClose}
     >
       {/* 装饰性雪花背景 */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
@@ -196,7 +195,7 @@ const PhotoModal: React.FC<{ url: string | null, onClose: () => void }> = ({ url
           transition={{ delay: 0.5 }}
           className="absolute -bottom-10 w-full text-center text-amber-200/60 cinzel text-xs md:text-sm tracking-wider"
         >
-          🎄 {imageError ? 'Memory Loading Failed' : 'Precious Memory'} 🎄
+          🎄 {imageError ? 'Memory Loading Failed' : `Precious Memory ${url === './1.jpg' ? '1' : '2'}/2`} 🎄
         </motion.div>
       </motion.div>
     </motion.div>
@@ -246,6 +245,8 @@ const AppContent: React.FC = () => {
   } = useContext(TreeContext) as TreeContextType;
   
   const [showHint, setShowHint] = useState(true);
+  const [photoIndex, setPhotoIndex] = useState(0); // 0: 无照片, 1: 第一张, 2: 第二张
+  const photos = ['./1.jpg', './2.jpg'];
 
   // 隐藏提示
   useEffect(() => {
@@ -253,15 +254,60 @@ const AppContent: React.FC = () => {
     return () => clearTimeout(timer);
   }, []);
 
+  // 全局点击处理 - 照片循环显示
   useEffect(() => {
-    if (selectedPhotoUrl && pointer) {
-      const x = pointer.x * window.innerWidth;
-      const y = pointer.y * window.innerHeight;
-      const element = document.elementFromPoint(x, y);
-      if (element) {
-        const isImage = element.tagName === 'IMG';
-        const isBackdrop = element.id === 'photo-modal-backdrop';
-        if (isBackdrop || isImage) setSelectedPhotoUrl(null);
+    const handleGlobalClick = () => {
+      if (photoIndex === 0) {
+        // 无照片状态 -> 显示第一张
+        console.log('显示第一张照片:', photos[0]);
+        setSelectedPhotoUrl(photos[0]);
+        setPhotoIndex(1);
+      } else if (photoIndex === 1) {
+        // 第一张照片 -> 显示第二张
+        console.log('显示第二张照片:', photos[1]);
+        setSelectedPhotoUrl(photos[1]);
+        setPhotoIndex(2);
+      } else {
+        // 第二张照片 -> 关闭照片
+        console.log('关闭照片');
+        setSelectedPhotoUrl(null);
+        setPhotoIndex(0);
+      }
+    };
+
+    // 监听全局点击（包括鼠标和手势点击）
+    const handleMouseClick = (e: MouseEvent) => {
+      // 排除UI元素的点击
+      const target = e.target as HTMLElement;
+      if (target.closest('header') || target.closest('footer')) return;
+      
+      handleGlobalClick();
+    };
+
+    // 监听鼠标点击
+    document.addEventListener('click', handleMouseClick);
+    
+    // 清理事件监听器
+    return () => {
+      document.removeEventListener('click', handleMouseClick);
+    };
+  }, [photoIndex, photos]);
+
+  // 手势点击触发
+  useEffect(() => {
+    if (clickTrigger > 0) {
+      if (photoIndex === 0) {
+        console.log('手势触发 - 显示第一张照片:', photos[0]);
+        setSelectedPhotoUrl(photos[0]);
+        setPhotoIndex(1);
+      } else if (photoIndex === 1) {
+        console.log('手势触发 - 显示第二张照片:', photos[1]);
+        setSelectedPhotoUrl(photos[1]);
+        setPhotoIndex(2);
+      } else {
+        console.log('手势触发 - 关闭照片');
+        setSelectedPhotoUrl(null);
+        setPhotoIndex(0);
       }
     }
   }, [clickTrigger]);
@@ -323,11 +369,27 @@ const AppContent: React.FC = () => {
           </div>
           
           {/* 状态指示器 */}
-          <div className="flex items-center gap-3 bg-black/30 backdrop-blur-sm rounded-full px-4 py-2 border border-white/10">
-            <div className={`w-2 h-2 rounded-full ${webcamEnabled ? 'bg-green-400 animate-pulse' : 'bg-red-400'}`}></div>
-            <span className="text-white/60 text-xs font-mono">
-              {webcamEnabled ? 'GESTURE ON' : 'GESTURE OFF'}
-            </span>
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center gap-3 bg-black/30 backdrop-blur-sm rounded-full px-4 py-2 border border-white/10">
+              <div className={`w-2 h-2 rounded-full ${webcamEnabled ? 'bg-green-400 animate-pulse' : 'bg-red-400'}`}></div>
+              <span className="text-white/60 text-xs font-mono">
+                {webcamEnabled ? 'GESTURE ON' : 'GESTURE OFF'}
+              </span>
+            </div>
+            
+            {/* 照片状态指示器 */}
+            <div className="flex items-center gap-3 bg-black/30 backdrop-blur-sm rounded-full px-4 py-2 border border-white/10">
+              <div className={`w-2 h-2 rounded-full ${
+                photoIndex === 0 ? 'bg-blue-400' : 
+                photoIndex === 1 ? 'bg-yellow-400 animate-pulse' : 
+                'bg-pink-400 animate-pulse'
+              }`}></div>
+              <span className="text-white/60 text-xs font-mono">
+                {photoIndex === 0 ? 'READY' : 
+                 photoIndex === 1 ? 'PHOTO 1/2' : 
+                 'PHOTO 2/2'}
+              </span>
+            </div>
           </div>
         </header>
         
@@ -340,9 +402,9 @@ const AppContent: React.FC = () => {
             className="text-white/40 text-xs cinzel tracking-wider"
           >
             {webcamEnabled ? (
-              <span>✊ 握拳聚合 · ✋ 张开扩散 · 👆 指向选择 · ✌️ 两指平移 · 🎁 点击礼物盒查看照片</span>
+              <span>✊ 握拳聚合 · ✋ 张开扩散 · 👆 指向选择 · ✌️ 两指平移 · 📸 点击任意位置查看照片</span>
             ) : (
-              <span>🖱️ 拖拽旋转 · 滚轮缩放 · 🎁 点击礼物盒查看照片 · 享受圣诞魔法</span>
+              <span>🖱️ 拖拽旋转 · 滚轮缩放 · 📸 点击任意位置查看照片 · 享受圣诞魔法</span>
             )}
           </motion.div>
         </footer>
