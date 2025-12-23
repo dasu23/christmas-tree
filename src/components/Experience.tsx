@@ -1,7 +1,7 @@
 
 import React, { useContext } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
-import { Environment, OrbitControls, Stars, Sparkles } from '@react-three/drei';
+import { OrbitControls, Stars, Sparkles } from '@react-three/drei';
 import { EffectComposer, Bloom, Vignette, Noise } from '@react-three/postprocessing';
 import * as THREE from 'three';
 import TreeSystem from './TreeSystem';
@@ -72,7 +72,9 @@ const Experience: React.FC = () => {
       <Sparkles count={100} scale={18} size={2} speed={0.7} opacity={0.4} color="#ff6b6b" />
       <Sparkles count={100} scale={18} size={2} speed={0.65} opacity={0.4} color="#4ecdc4" />
 
-      <Environment preset="city" environmentIntensity={0.5} />
+      {/* 补充环境光照 - 替代 Environment preset */}
+      <hemisphereLight args={['#87CEEB', '#228B22', 0.3]} />
+      <directionalLight position={[-5, 10, 5]} intensity={0.5} color="#ffffff" />
 
       {/* Main Content */}
       <group position={[0, -2, 0]}>
