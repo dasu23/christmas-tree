@@ -367,8 +367,8 @@ const PolaroidPhoto: React.FC<{
       (error) => {
         console.error(`照片加载失败: ${url}`, error);
         // 对于1.jpg和2.jpg，尝试备用路径
-        if (url === './1.jpg' || url === './2.jpg') {
-          const backupUrl = url.replace('./', '/');
+        if (url === '/1.jpg' || url === '/2.jpg') {
+          const backupUrl = url.replace('/', './');
           console.log(`尝试备用路径: ${backupUrl}`);
           loader.load(
             backupUrl,
@@ -584,7 +584,7 @@ const TreeSystem: React.FC = () => {
 
       // 根据文件名决定路径
       const imagePath = (fileName === '1.jpg' || fileName === '2.jpg') 
-        ? `./${fileName}` 
+        ? `/${fileName}` 
         : `./photos/${fileName}`;
 
       return {
