@@ -57,22 +57,22 @@ export interface GestureState {
   palmVelocity: PointerCoords | null;  // 手掌移动速度
 }
 
-// 默认粒子配置
+// 默认粒子配置 - 圣诞树模式
 export const defaultParticleConfig: ParticleConfig = {
   shape: 'sphere',
-  count: 8000,
+  count: 3000, // 减少粒子数量，降低性能消耗
   size: 1.0,
   scale: 1.0,
   colors: {
-    primary: '#ff4444',
+    primary: '#228b22', // 圣诞绿
     glow: '#ffffff'
   },
-  colorMix: 0.3,
+  colorMix: 0.2, // 降低颜色混合强度
   animationSpeed: 1.0,
   spreadIntensity: 1.0,
   rotationEnabled: true,
   effect: 'vortex',
-  glowIntensity: 1.0,
+  glowIntensity: 0.8, // 降低发光强度
   trailEnabled: false
 };
 

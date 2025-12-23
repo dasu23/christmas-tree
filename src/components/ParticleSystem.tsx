@@ -5,7 +5,7 @@ import { TreeContext, TreeContextType, ParticleConfig } from '../types';
 import { getParticleTexture, ParticleShape } from '../utils/textureGenerator';
 import * as random from 'maath/random/dist/maath-random.esm';
 
-// 粒子系统着色器
+// 粒子系统着色器 - 降低亮度，更自然的效果
 const particleVertexShader = `
   uniform float uTime;
   uniform float uPixelRatio;
@@ -20,22 +20,23 @@ const particleVertexShader = `
   varying vec3 vPosition;
   varying float vAlpha;
   varying float vSize;
+  varying float vDepth;
   
   // 简化的噪声函数
   float noise(vec3 p) {
     return fract(sin(dot(p, vec3(12.9898, 78.233, 45.543))) * 43758.5453);
   }
   
-  // 旋涡位移
+  // 旋涡位移 - 更温和
   vec3 vortexDisplacement(vec3 pos, float time) {
-    float angle = time * 0.5 + pos.y * 0.3;
+    float angle = time * 0.3 + pos.y * 0.2;
     float radius = length(pos.xz);
-    float twist = sin(pos.y * 0.5 + time) * 0.3;
+    float twist = sin(pos.y * 0.3 + time) * 0.2;
     
     vec3 displaced = pos;
-    displaced.x += sin(angle + twist) * radius * 0.1;
-    displaced.z += cos(angle + twist) * radius * 0.1;
-    displaced.y += sin(time * 0.3 + randomOffset * 6.28) * 0.2;
+    displaced.x += sin(angle + twist) * radius * 0.05;
+    displaced.z += cos(angle + twist) * radius * 0.05;
+    displaced.y += sin(time * 0.2 + randomOffset * 6.28) * 0.15;
     
     return displaced;
   }
@@ -50,7 +51,7 @@ const particleVertexShader = `
     currentPos = vortexDisplacement(currentPos, uTime);
     
     // 悬停扩散效果
-    currentPos *= 1.0 + uHover * 0.15;
+    currentPos *= 1.0 + uHover * 0.1;
     
     // 整体缩放
     currentPos *= uScale;
@@ -58,20 +59,21 @@ const particleVertexShader = `
     vec4 mvPosition = modelViewMatrix * vec4(currentPos, 1.0);
     gl_Position = projectionMatrix * mvPosition;
     
-    // 大小计算
-    float sizeMultiplier = mix(1.5, 0.8, (position.y + 8.0) / 16.0);
-    float baseSize = size * uPixelRatio * sizeMultiplier;
+    // 大小计算 - 降低整体大小
+    float sizeMultiplier = mix(1.2, 0.6, (position.y + 8.0) / 16.0);
+    float baseSize = size * uPixelRatio * sizeMultiplier * 0.7;
     
     // 距离衰减
-    gl_PointSize = baseSize * (150.0 / -mvPosition.z);
-    gl_PointSize = clamp(gl_PointSize, 2.0, 100.0);
+    gl_PointSize = baseSize * (120.0 / -mvPosition.z);
+    gl_PointSize = clamp(gl_PointSize, 1.5, 60.0);
     
     vSize = gl_PointSize;
+    vDepth = -mvPosition.z;
     
-    // Alpha 计算
+    // Alpha 计算 - 降低透明度
     float heightFade = smoothstep(-8.0, 8.0, position.y);
-    float distanceFade = 1.0 - smoothstep(50.0, 100.0, -mvPosition.z);
-    vAlpha = heightFade * distanceFade * 0.9;
+    float distanceFade = 1.0 - smoothstep(40.0, 80.0, -mvPosition.z);
+    vAlpha = heightFade * distanceFade * 0.65;
   }
 `;
 
@@ -84,17 +86,22 @@ const particleFragmentShader = `
   varying vec3 vPosition;
   varying float vAlpha;
   varying float vSize;
+  varying float vDepth;
   
   void main() {
     vec4 texColor = texture2D(uTexture, gl_PointCoord);
     
-    // 圣诞主题色混合
+    // 圣诞主题色混合 - 降低饱和度
     vec3 baseColor = texColor.rgb;
-    vec3 tintedColor = mix(baseColor, uColor, uColorMix);
+    vec3 tintedColor = mix(baseColor, uColor, uColorMix * 0.6);
     
-    // 闪烁效果
-    float sparkle = sin(uTime * 3.0 + vPosition.x * 10.0 + vPosition.y * 8.0) * 0.15 + 0.85;
+    // 闪烁效果 - 更柔和
+    float sparkle = sin(uTime * 1.5 + vPosition.x * 5.0 + vPosition.y * 4.0) * 0.08 + 0.92;
     tintedColor *= sparkle;
+    
+    // 深度衰减 - 远处粒子更暗
+    float depthFade = 1.0 - smoothstep(20.0, 60.0, vDepth) * 0.3;
+    tintedColor *= depthFade;
     
     // 边缘柔化
     float alpha = texColor.a * vAlpha;
@@ -105,7 +112,7 @@ const particleFragmentShader = `
   }
 `;
 
-// 生成圣诞树形状的粒子位置
+// 生成圣诞树形状的粒子位置 - 减少数量
 function generateTreePositions(count: number): { chaos: Float32Array; tree: Float32Array; sizes: Float32Array } {
   const chaosPositions = new Float32Array(count * 3);
   const treePositions = new Float32Array(count * 3);
@@ -117,27 +124,27 @@ function generateTreePositions(count: number): { chaos: Float32Array; tree: Floa
     chaosPositions[i] = sphere[i];
   }
   
-  // 圣诞树形状分布
+  // 圣诞树形状分布 - 更稀疏，更自然
   for (let i = 0; i < count; i++) {
     const i3 = i * 3;
     
-    // 高度分布（底部更密集）
-    const h = Math.pow(Math.random(), 0.8) * 16;
+    // 高度分布
+    const h = Math.pow(Math.random(), 0.7) * 16;
     
     // 锥形半径
-    const maxRadius = (16 - h) * 0.55;
-    const r = Math.pow(Math.random(), 0.5) * maxRadius;
+    const maxRadius = (16 - h) * 0.52;
+    const r = Math.pow(Math.random(), 0.6) * maxRadius;
     
     // 角度（带螺旋）
     const angle = Math.random() * Math.PI * 2;
-    const spiralOffset = Math.sin(h * 0.6 + angle * 2) * 0.4;
+    const spiralOffset = Math.sin(h * 0.5 + angle * 2) * 0.3;
     
     treePositions[i3] = Math.cos(angle) * (r + spiralOffset);
-    treePositions[i3 + 1] = h - 7.5; // 居中
+    treePositions[i3 + 1] = h - 7.5;
     treePositions[i3 + 2] = Math.sin(angle) * (r + spiralOffset);
     
-    // 随机大小
-    sizes[i] = Math.random() * 2.5 + 0.8;
+    // 随机大小 - 稍大一点
+    sizes[i] = Math.random() * 3.0 + 1.2;
   }
   
   return { chaos: chaosPositions, tree: treePositions, sizes };
@@ -169,8 +176,8 @@ const ParticleSystem: React.FC<ParticleSystemProps> = ({ config }) => {
   const currentPan = useRef({ x: 0, y: 0 });
   const [texture, setTexture] = useState<THREE.CanvasTexture | null>(null);
   
-  // 获取粒子数量
-  const particleCount = finalConfig?.count || 8000;
+  // 减少粒子数量 - 从8000减少到3000
+  const particleCount = Math.min(finalConfig?.count || 3000, 4000);
   
   // 生成粒子数据
   const particleData = useMemo(() => {
@@ -189,7 +196,7 @@ const ParticleSystem: React.FC<ParticleSystemProps> = ({ config }) => {
   // 更新纹理
   useEffect(() => {
     const shape = finalConfig?.shape || 'sphere';
-    const colors = finalConfig?.colors || { primary: '#ff4444', glow: '#ffffff' };
+    const colors = finalConfig?.colors || { primary: '#228b22', glow: '#ffffff' };
     
     const newTexture = getParticleTexture(shape as ParticleShape, {
       size: 128,
@@ -204,16 +211,16 @@ const ParticleSystem: React.FC<ParticleSystemProps> = ({ config }) => {
     };
   }, [finalConfig?.shape, finalConfig?.colors?.primary, finalConfig?.colors?.glow]);
   
-  // Uniforms
+  // Uniforms - 调整默认颜色为圣诞绿
   const uniforms = useMemo(() => ({
     uTime: { value: 0 },
     uPixelRatio: { value: Math.min(gl.getPixelRatio(), 2) },
     uTexture: { value: texture },
-    uColor: { value: new THREE.Color(finalConfig?.colors?.primary || '#ff4444') },
+    uColor: { value: new THREE.Color(finalConfig?.colors?.primary || '#228b22') },
     uScale: { value: 1.0 },
     uSpread: { value: 0 },
     uHover: { value: 0 },
-    uColorMix: { value: finalConfig?.colorMix || 0.3 }
+    uColorMix: { value: finalConfig?.colorMix || 0.2 }
   }), [texture, finalConfig?.colors?.primary, finalConfig?.colorMix]);
   
   // 更新uniforms
@@ -226,9 +233,9 @@ const ParticleSystem: React.FC<ParticleSystemProps> = ({ config }) => {
   useEffect(() => {
     if (materialRef.current) {
       materialRef.current.uniforms.uColor.value = new THREE.Color(
-        finalConfig?.colors?.primary || '#ff4444'
+        finalConfig?.colors?.primary || '#228b22'
       );
-      materialRef.current.uniforms.uColorMix.value = finalConfig?.colorMix || 0.3;
+      materialRef.current.uniforms.uColorMix.value = finalConfig?.colorMix || 0.2;
     }
   }, [finalConfig?.colors?.primary, finalConfig?.colorMix]);
   
@@ -257,7 +264,7 @@ const ParticleSystem: React.FC<ParticleSystemProps> = ({ config }) => {
       materialRef.current.uniforms.uTime.value = state3d.clock.getElapsedTime();
       materialRef.current.uniforms.uSpread.value = progress.current;
       materialRef.current.uniforms.uScale.value = finalConfig?.scale || 1.0;
-      materialRef.current.uniforms.uHover.value = pointer ? 0.3 : 0;
+      materialRef.current.uniforms.uHover.value = pointer ? 0.2 : 0;
     }
     
     // 更新粒子位置（混沌<->树形过渡）
@@ -285,7 +292,7 @@ const ParticleSystem: React.FC<ParticleSystemProps> = ({ config }) => {
         // 树形位置旋转和旋涡效果
         const tr = Math.sqrt(tx * tx + tz * tz);
         const tAngle = Math.atan2(tz, tx);
-        const vortexTwist = (1 - ease) * 12.0;
+        const vortexTwist = (1 - ease) * 10.0;
         const currentAngle = tAngle + vortexTwist;
         
         // 插值
@@ -344,4 +351,3 @@ const ParticleSystem: React.FC<ParticleSystemProps> = ({ config }) => {
 };
 
 export default ParticleSystem;
-

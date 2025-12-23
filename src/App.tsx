@@ -12,7 +12,6 @@ import {
 import Experience from './components/Experience';
 import GestureInput from './components/GestureInput';
 import TechEffects from './components/TechEffects';
-import ControlPanel from './components/ControlPanel';
 import { AnimatePresence, motion } from 'framer-motion';
 
 // --- 梦幻光标组件 (圣诞主题) ---
@@ -314,7 +313,7 @@ const AppContent: React.FC = () => {
             {webcamEnabled ? (
               <span>✊ 握拳聚合 · ✋ 张开扩散 · 👆 指向选择 · ✌️ 两指平移</span>
             ) : (
-              <span>🖱️ 拖拽旋转 · 滚轮缩放 · 使用右侧控制面板调整</span>
+              <span>🖱️ 拖拽旋转 · 滚轮缩放 · 享受圣诞魔法</span>
             )}
           </motion.div>
         </footer>
@@ -332,15 +331,13 @@ const AppContent: React.FC = () => {
       <AnimatePresence>
         {selectedPhotoUrl && <PhotoModal url={selectedPhotoUrl} onClose={() => setSelectedPhotoUrl(null)} />}
       </AnimatePresence>
-      
-      {/* dat.GUI 控制面板 */}
-      <ControlPanel />
     </main>
   );
 };
 
 const App: React.FC = () => {
-  const [state, setState] = useState<AppState>('CHAOS');
+  // 默认为圣诞树模式 (FORMED)
+  const [state, setState] = useState<AppState>('FORMED');
   const [rotationSpeed, setRotationSpeed] = useState<number>(0.3);
   const [rotationBoost, setRotationBoost] = useState<number>(0);
   const [webcamEnabled, setWebcamEnabled] = useState<boolean>(true);

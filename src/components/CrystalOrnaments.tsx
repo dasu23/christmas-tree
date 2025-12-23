@@ -5,21 +5,16 @@ import { TreeContext, TreeContextType } from '../types';
 
 // 优化的圣诞配色方案
 const CHRISTMAS_PALETTE = {
-  // 主色调 - 更温暖饱和
   crimson: '#dc143c',
   holly: '#2e8b57',
   gold: '#ffd700',
   ivory: '#fffaf0',
-  
-  // 装饰色 - 更丰富层次
   ruby: '#e31c54',
   emerald: '#50c878',
   champagne: '#f7e7ce',
   copper: '#b87333',
   sapphire: '#0f52ba',
   amethyst: '#9966cc',
-  
-  // 金属色 - 更闪亮
   brightGold: '#ffdf00',
   roseGold: '#b76e79',
   silver: '#c0c0c0',
@@ -145,53 +140,35 @@ const GiftBox: React.FC<{ position: THREE.Vector3; scale: number; color: string;
   );
 };
 
-// 全新设计的伯利恒之星 - 水晶3D立体星
+// 优化的伯利恒之星 - 更自然的光芒效果
 const BethlehemStar: React.FC<{ position: [number, number, number]; scale: number }> = ({ position, scale }) => {
   const groupRef = useRef<THREE.Group>(null);
   const innerGlowRef = useRef<THREE.PointLight>(null);
-  const outerGlowRef = useRef<THREE.PointLight>(null);
-  const crystalRef = useRef<THREE.Mesh>(null);
-  const haloRef = useRef<THREE.Mesh>(null);
+  const raysRef = useRef<THREE.Group>(null);
   
   useFrame((state) => {
     const t = state.clock.elapsedTime;
     
     if (groupRef.current) {
-      // 缓慢旋转
-      groupRef.current.rotation.y = t * 0.2;
-      // 轻微上下浮动
-      groupRef.current.position.y = position[1] + Math.sin(t * 0.8) * 0.15;
+      groupRef.current.rotation.y = t * 0.15;
+      groupRef.current.position.y = position[1] + Math.sin(t * 0.6) * 0.12;
     }
     
     if (innerGlowRef.current) {
-      // 内核脉动
-      innerGlowRef.current.intensity = 8 + Math.sin(t * 3) * 3;
+      innerGlowRef.current.intensity = 6 + Math.sin(t * 2.5) * 2;
     }
     
-    if (outerGlowRef.current) {
-      // 外光晕呼吸
-      outerGlowRef.current.intensity = 4 + Math.sin(t * 2) * 1.5;
-    }
-    
-    if (crystalRef.current) {
-      // 水晶闪烁
-      const material = crystalRef.current.material as THREE.MeshPhysicalMaterial;
-      material.emissiveIntensity = 0.8 + Math.sin(t * 4) * 0.3;
-    }
-    
-    if (haloRef.current) {
-      // 光晕缩放
-      const s = 1 + Math.sin(t * 2.5) * 0.15;
-      haloRef.current.scale.set(s, s, 1);
+    if (raysRef.current) {
+      raysRef.current.rotation.z = t * 0.3;
     }
   });
   
-  // 创建八角星几何体
+  // 创建五角星几何体
   const starGeometry = useMemo(() => {
     const shape = new THREE.Shape();
-    const points = 8;
-    const outerRadius = 0.5;
-    const innerRadius = 0.22;
+    const points = 5;
+    const outerRadius = 0.45;
+    const innerRadius = 0.18;
     
     for (let i = 0; i < points * 2; i++) {
       const radius = i % 2 === 0 ? outerRadius : innerRadius;
@@ -204,74 +181,62 @@ const BethlehemStar: React.FC<{ position: [number, number, number]; scale: numbe
     shape.closePath();
     
     return new THREE.ExtrudeGeometry(shape, {
-      depth: 0.12,
+      depth: 0.08,
       bevelEnabled: true,
-      bevelThickness: 0.04,
-      bevelSize: 0.04,
-      bevelSegments: 3
+      bevelThickness: 0.03,
+      bevelSize: 0.03,
+      bevelSegments: 2
     });
   }, []);
   
   return (
     <group ref={groupRef} position={position} scale={scale}>
-      {/* 最外层光晕环 */}
-      <mesh ref={haloRef} position={[0, 0, -0.3]}>
-        <ringGeometry args={[0.8, 1.6, 64]} />
-        <meshBasicMaterial 
-          color="#fff8dc" 
-          transparent 
-          opacity={0.15} 
-          side={THREE.DoubleSide}
-          blending={THREE.AdditiveBlending}
-        />
-      </mesh>
+      {/* 柔和的光芒射线 - 使用圆锥形状避免方块感 */}
+      <group ref={raysRef}>
+        {[...Array(8)].map((_, i) => {
+          const angle = (i * Math.PI * 2) / 8;
+          const isLong = i % 2 === 0;
+          const length = isLong ? 1.8 : 1.2;
+          return (
+            <mesh 
+              key={i} 
+              rotation={[Math.PI / 2, 0, angle]}
+              position={[0, 0, 0]}
+            >
+              <coneGeometry args={[0.03, length, 8, 1, true]} />
+              <meshBasicMaterial 
+                color="#fffacd"
+                transparent 
+                opacity={isLong ? 0.5 : 0.3}
+                side={THREE.DoubleSide}
+                blending={THREE.AdditiveBlending}
+              />
+            </mesh>
+          );
+        })}
+      </group>
       
-      {/* 动态光芒射线 */}
-      {[...Array(12)].map((_, i) => {
-        const angle = (i * Math.PI * 2) / 12;
-        const length = i % 2 === 0 ? 2.5 : 1.8;
-        const width = i % 2 === 0 ? 0.06 : 0.04;
-        return (
-          <mesh 
-            key={i} 
-            rotation={[0, 0, angle]}
-            position={[0, 0, -0.1]}
-          >
-            <planeGeometry args={[width, length]} />
-            <meshBasicMaterial 
-              color={i % 2 === 0 ? '#fffacd' : '#fff8dc'}
-              transparent 
-              opacity={i % 2 === 0 ? 0.6 : 0.35}
-              side={THREE.DoubleSide}
-              blending={THREE.AdditiveBlending}
-            />
-          </mesh>
-        );
-      })}
-      
-      {/* 主星体 - 水晶材质 */}
-      <mesh ref={crystalRef} geometry={starGeometry} rotation={[Math.PI / 2, 0, 0]}>
+      {/* 主星体 */}
+      <mesh geometry={starGeometry} rotation={[Math.PI / 2, 0, 0]}>
         <meshPhysicalMaterial
           color="#fff8dc"
           emissive="#ffd700"
-          emissiveIntensity={0.8}
-          metalness={0.3}
-          roughness={0.1}
-          transmission={0.3}
-          thickness={0.5}
-          clearcoat={1}
+          emissiveIntensity={1.0}
+          metalness={0.4}
+          roughness={0.15}
+          clearcoat={0.8}
           clearcoatRoughness={0.1}
           toneMapped={false}
         />
       </mesh>
       
-      {/* 第二层星 - 稍小，增加层次 */}
-      <mesh rotation={[Math.PI / 2, 0, Math.PI / 8]} scale={0.7} position={[0, 0, 0.08]}>
+      {/* 第二层星 - 稍小 */}
+      <mesh rotation={[Math.PI / 2, 0, Math.PI / 5]} scale={0.65} position={[0, 0, 0.06]}>
         <extrudeGeometry args={[(() => {
           const shape = new THREE.Shape();
-          const points = 8;
-          const outerRadius = 0.5;
-          const innerRadius = 0.22;
+          const points = 5;
+          const outerRadius = 0.45;
+          const innerRadius = 0.18;
           for (let i = 0; i < points * 2; i++) {
             const radius = i % 2 === 0 ? outerRadius : innerRadius;
             const angle = (i * Math.PI) / points - Math.PI / 2;
@@ -282,95 +247,207 @@ const BethlehemStar: React.FC<{ position: [number, number, number]; scale: numbe
           }
           shape.closePath();
           return shape;
-        })(), { depth: 0.06, bevelEnabled: true, bevelThickness: 0.02, bevelSize: 0.02 }]} />
+        })(), { depth: 0.05, bevelEnabled: true, bevelThickness: 0.02, bevelSize: 0.02 }]} />
         <meshPhysicalMaterial
           color="#ffffff"
           emissive="#ffec8b"
-          emissiveIntensity={0.6}
+          emissiveIntensity={0.7}
           metalness={0.5}
-          roughness={0.05}
+          roughness={0.1}
           clearcoat={1}
           toneMapped={false}
         />
       </mesh>
       
-      {/* 中心宝石核心 */}
-      <mesh position={[0, 0, 0.1]}>
-        <octahedronGeometry args={[0.18, 0]} />
-        <meshPhysicalMaterial
-          color="#ffffff"
-          emissive="#ffd700"
-          emissiveIntensity={2}
-          metalness={0.2}
-          roughness={0}
-          transmission={0.5}
-          thickness={1}
-          clearcoat={1}
-          toneMapped={false}
-        />
-      </mesh>
-      
-      {/* 中心发光球 */}
-      <mesh position={[0, 0, 0.1]}>
-        <sphereGeometry args={[0.08, 16, 16]} />
+      {/* 中心发光核心 */}
+      <mesh position={[0, 0, 0.08]}>
+        <sphereGeometry args={[0.12, 24, 24]} />
         <meshBasicMaterial color="#ffffff" toneMapped={false} />
       </mesh>
       
       {/* 内核点光源 */}
       <pointLight 
         ref={innerGlowRef}
-        position={[0, 0, 0.2]}
-        intensity={8}
+        position={[0, 0, 0.15]}
+        intensity={6}
         color="#fff5e1"
-        distance={15}
+        distance={12}
         decay={2}
       />
       
-      {/* 外层柔光 */}
-      <pointLight
-        ref={outerGlowRef}
-        position={[0, 0, 0.5]}
-        intensity={4}
-        color="#ffd700"
-        distance={25}
-        decay={2}
-      />
-      
-      {/* 背光 */}
-      <pointLight
-        position={[0, 0, -0.5]}
-        intensity={2}
-        color="#ffe4b5"
-        distance={10}
-        decay={2}
-      />
-      
-      {/* 大光晕精灵 */}
-      <sprite scale={[4, 4, 1]}>
+      {/* 柔和的外层光晕 - 使用sprite避免方块 */}
+      <sprite scale={[3.5, 3.5, 1]}>
         <spriteMaterial 
           color="#ffefd5"
           transparent 
-          opacity={0.25}
+          opacity={0.2}
           blending={THREE.AdditiveBlending}
         />
       </sprite>
-      
-      {/* 小光点装饰 */}
-      {[...Array(6)].map((_, i) => {
-        const angle = (i * Math.PI * 2) / 6;
-        const r = 0.65;
-        return (
-          <mesh key={`sparkle-${i}`} position={[Math.cos(angle) * r, Math.sin(angle) * r, 0.05]}>
-            <sphereGeometry args={[0.03, 8, 8]} />
-            <meshBasicMaterial color="#ffffff" toneMapped={false} />
-          </mesh>
-        );
-      })}
     </group>
   );
 };
 
-// 发光圣诞球 - 优化颜色
+// 大型圣诞彩球 - 新增组件
+const LargeChristmasBall: React.FC<{ 
+  position: THREE.Vector3; 
+  scale: number; 
+  color: string;
+  emissiveColor?: string;
+}> = ({ position, scale, color, emissiveColor }) => {
+  const meshRef = useRef<THREE.Mesh>(null);
+  const [hovered, setHovered] = useState(false);
+  
+  useFrame((state) => {
+    if (meshRef.current) {
+      // 轻微摆动
+      meshRef.current.rotation.x = Math.sin(state.clock.elapsedTime * 0.5 + position.x) * 0.05;
+      meshRef.current.rotation.z = Math.cos(state.clock.elapsedTime * 0.4 + position.z) * 0.05;
+    }
+  });
+  
+  return (
+    <group position={position}>
+      {/* 挂钩 */}
+      <mesh position={[0, scale * 1.1, 0]}>
+        <torusGeometry args={[scale * 0.12, scale * 0.025, 8, 16, Math.PI]} />
+        <meshStandardMaterial color={CHRISTMAS_PALETTE.silver} metalness={0.95} roughness={0.15} />
+      </mesh>
+      <mesh position={[0, scale * 1.18, 0]}>
+        <cylinderGeometry args={[scale * 0.03, scale * 0.03, scale * 0.15, 8]} />
+        <meshStandardMaterial color={CHRISTMAS_PALETTE.silver} metalness={0.9} roughness={0.2} />
+      </mesh>
+      
+      {/* 主球体 */}
+      <mesh 
+        ref={meshRef}
+        scale={scale}
+        onPointerOver={() => setHovered(true)}
+        onPointerOut={() => setHovered(false)}
+      >
+        <sphereGeometry args={[1, 32, 32]} />
+        <meshPhysicalMaterial
+          color={color}
+          roughness={0.1}
+          metalness={0.9}
+          emissive={emissiveColor || color}
+          emissiveIntensity={hovered ? 0.5 : 0.2}
+          clearcoat={1}
+          clearcoatRoughness={0.05}
+          reflectivity={1}
+        />
+      </mesh>
+      
+      {/* 装饰条纹 */}
+      <mesh scale={scale * 1.01} rotation={[0, 0, Math.PI / 6]}>
+        <torusGeometry args={[0.85, 0.05, 8, 32]} />
+        <meshStandardMaterial 
+          color={CHRISTMAS_PALETTE.brightGold}
+          metalness={0.95}
+          roughness={0.1}
+          emissive={CHRISTMAS_PALETTE.gold}
+          emissiveIntensity={0.3}
+        />
+      </mesh>
+      
+      {hovered && (
+        <pointLight intensity={2} color={color} distance={5} decay={2} />
+      )}
+    </group>
+  );
+};
+
+// 旋转粒子彩带 - 新增组件
+const SpiralingRibbon: React.FC<{ 
+  color: string; 
+  rotationOffset: number;
+  height: number;
+  radius: number;
+}> = ({ color, rotationOffset, height, radius }) => {
+  const ribbonRef = useRef<THREE.Group>(null);
+  const particlesRef = useRef<THREE.Points>(null);
+  
+  const particleCount = 120;
+  
+  const { positions, sizes } = useMemo(() => {
+    const positions = new Float32Array(particleCount * 3);
+    const sizes = new Float32Array(particleCount);
+    
+    for (let i = 0; i < particleCount; i++) {
+      const t = i / particleCount;
+      const angle = t * Math.PI * 6 + rotationOffset;
+      const h = t * height - height / 2;
+      const r = radius * (1 - t * 0.4);
+      
+      positions[i * 3] = Math.cos(angle) * r;
+      positions[i * 3 + 1] = h;
+      positions[i * 3 + 2] = Math.sin(angle) * r;
+      
+      sizes[i] = (0.15 + Math.random() * 0.1) * (1 - t * 0.5);
+    }
+    
+    return { positions, sizes };
+  }, [rotationOffset, height, radius]);
+  
+  useFrame((state) => {
+    if (ribbonRef.current) {
+      ribbonRef.current.rotation.y = state.clock.elapsedTime * 0.2;
+    }
+    
+    if (particlesRef.current) {
+      const posArray = particlesRef.current.geometry.attributes.position.array as Float32Array;
+      const time = state.clock.elapsedTime;
+      
+      for (let i = 0; i < particleCount; i++) {
+        const t = i / particleCount;
+        const baseAngle = t * Math.PI * 6 + rotationOffset + time * 0.3;
+        const h = t * height - height / 2;
+        const r = radius * (1 - t * 0.4);
+        
+        // 添加波动效果
+        const wave = Math.sin(time * 2 + t * 10) * 0.1;
+        
+        posArray[i * 3] = Math.cos(baseAngle) * (r + wave);
+        posArray[i * 3 + 1] = h;
+        posArray[i * 3 + 2] = Math.sin(baseAngle) * (r + wave);
+      }
+      
+      particlesRef.current.geometry.attributes.position.needsUpdate = true;
+    }
+  });
+  
+  return (
+    <group ref={ribbonRef}>
+      <points ref={particlesRef}>
+        <bufferGeometry>
+          <bufferAttribute
+            attach="attributes-position"
+            count={particleCount}
+            array={positions}
+            itemSize={3}
+          />
+          <bufferAttribute
+            attach="attributes-size"
+            count={particleCount}
+            array={sizes}
+            itemSize={1}
+          />
+        </bufferGeometry>
+        <pointsMaterial
+          size={0.2}
+          color={color}
+          transparent
+          opacity={0.85}
+          depthWrite={false}
+          blending={THREE.AdditiveBlending}
+          sizeAttenuation
+        />
+      </points>
+    </group>
+  );
+};
+
+// 发光圣诞球 - 标准尺寸
 const GlowingBauble: React.FC<{ 
   position: THREE.Vector3; 
   scale: number; 
@@ -382,20 +459,18 @@ const GlowingBauble: React.FC<{
   
   useFrame(() => {
     if (meshRef.current) {
-      const targetScale = hovered ? scale * 1.3 : scale;
+      const targetScale = hovered ? scale * 1.2 : scale;
       meshRef.current.scale.lerp(new THREE.Vector3(targetScale, targetScale, targetScale), 0.1);
     }
   });
   
   return (
     <group position={position}>
-      {/* 挂钩 */}
       <mesh position={[0, scale * 1.2, 0]}>
         <torusGeometry args={[scale * 0.15, scale * 0.03, 8, 16, Math.PI]} />
         <meshStandardMaterial color={CHRISTMAS_PALETTE.silver} metalness={0.95} roughness={0.15} />
       </mesh>
       
-      {/* 球体 */}
       <mesh 
         ref={meshRef}
         scale={scale}
@@ -408,20 +483,14 @@ const GlowingBauble: React.FC<{
           roughness={metallic ? 0.08 : 0.4}
           metalness={metallic ? 0.98 : 0.15}
           emissive={color}
-          emissiveIntensity={hovered ? 0.9 : 0.35}
+          emissiveIntensity={hovered ? 0.6 : 0.25}
           clearcoat={metallic ? 1 : 0.3}
           clearcoatRoughness={0.1}
         />
       </mesh>
       
-      {/* 高光 */}
-      <mesh scale={scale * 0.97}>
-        <sphereGeometry args={[1, 32, 32]} />
-        <meshBasicMaterial color="#ffffff" transparent opacity={0.08} />
-      </mesh>
-      
       {hovered && (
-        <pointLight intensity={2} color={color} distance={4} decay={2} />
+        <pointLight intensity={1.5} color={color} distance={4} decay={2} />
       )}
     </group>
   );
@@ -436,12 +505,11 @@ const CrystalOrnaments: React.FC = () => {
   const treeRotation = useRef(0);
   const currentPan = useRef({ x: 0, y: 0 });
 
-  // 优化的装饰品颜色配置
+  // 减少装饰品数量，增加大型彩球
   const ornaments = useMemo(() => {
-    const count = 45;
+    const count = 30; // 减少数量
     const items = [];
     
-    // 更丰富的圣诞球颜色
     const baubleColors = [
       CHRISTMAS_PALETTE.crimson,
       CHRISTMAS_PALETTE.ruby,
@@ -462,7 +530,7 @@ const CrystalOrnaments: React.FC = () => {
       const t = i / count;
       const h = t * 14 - 6.5;
       const r = (9 - h) * 0.55 + 0.4;
-      const angle = t * Math.PI * 14;
+      const angle = t * Math.PI * 10;
 
       const radius = 11 + Math.random() * 13;
       const theta = Math.random() * Math.PI * 2;
@@ -475,12 +543,13 @@ const CrystalOrnaments: React.FC = () => {
       ];
 
       const typeRand = Math.random();
-      let type: 'bauble' | 'bauble-metallic' | 'candy-cane' | 'bell' = 'bauble';
-      if (typeRand > 0.88) type = 'candy-cane';
-      else if (typeRand > 0.75) type = 'bell';
-      else if (typeRand > 0.45) type = 'bauble-metallic';
+      let type: 'bauble' | 'bauble-metallic' | 'candy-cane' | 'bell' | 'large-ball' = 'bauble';
+      if (typeRand > 0.92) type = 'candy-cane';
+      else if (typeRand > 0.85) type = 'bell';
+      else if (typeRand > 0.6) type = 'large-ball';
+      else if (typeRand > 0.35) type = 'bauble-metallic';
 
-      const color = type === 'bauble-metallic' 
+      const color = type === 'bauble-metallic' || type === 'large-ball'
         ? metallicColors[Math.floor(Math.random() * metallicColors.length)]
         : baubleColors[Math.floor(Math.random() * baubleColors.length)];
 
@@ -490,13 +559,12 @@ const CrystalOrnaments: React.FC = () => {
         treeCyl: { h, r, angle },
         type,
         color,
-        scale: Math.random() * 0.12 + 0.1
+        scale: type === 'large-ball' ? Math.random() * 0.2 + 0.25 : Math.random() * 0.12 + 0.1
       });
     }
     return items;
   }, []);
 
-  // 优化的礼物盒颜色
   const gifts = useMemo(() => {
     const giftColors = [
       { box: CHRISTMAS_PALETTE.crimson, ribbon: CHRISTMAS_PALETTE.brightGold },
@@ -507,16 +575,16 @@ const CrystalOrnaments: React.FC = () => {
       { box: CHRISTMAS_PALETTE.ruby, ribbon: CHRISTMAS_PALETTE.silver },
     ];
     
-    return Array.from({ length: 10 }, (_, i) => {
-      const angle = (i / 10) * Math.PI * 2 + Math.random() * 0.4;
-      const dist = 2.5 + Math.random() * 2.5;
+    return Array.from({ length: 8 }, (_, i) => {
+      const angle = (i / 8) * Math.PI * 2 + Math.random() * 0.4;
+      const dist = 2.5 + Math.random() * 2;
       return {
         position: new THREE.Vector3(
           Math.cos(angle) * dist,
           -8.5 + Math.random() * 0.2,
           Math.sin(angle) * dist
         ),
-        scale: 0.7 + Math.random() * 0.5,
+        scale: 0.7 + Math.random() * 0.4,
         colors: giftColors[i % giftColors.length],
         rotation: Math.random() * Math.PI * 2
       };
@@ -592,6 +660,17 @@ const CrystalOrnaments: React.FC = () => {
             </group>
           );
         }
+        if (o.type === 'large-ball') {
+          return (
+            <group key={i} ref={(el) => { ornamentRefs.current[i] = el; }}>
+              <LargeChristmasBall
+                position={new THREE.Vector3(0, 0, 0)}
+                scale={o.scale}
+                color={o.color}
+              />
+            </group>
+          );
+        }
         return (
           <group key={i} ref={(el) => { ornamentRefs.current[i] = el; }}>
             <GlowingBauble
@@ -604,8 +683,17 @@ const CrystalOrnaments: React.FC = () => {
         );
       })}
 
-      {/* 全新伯利恒之星 */}
-      <BethlehemStar position={[0, 9.5, 0]} scale={1.1} />
+      {/* 优化的伯利恒之星 */}
+      <BethlehemStar position={[0, 9.5, 0]} scale={1.0} />
+
+      {/* 旋转粒子彩带 */}
+      {state === 'FORMED' && (
+        <>
+          <SpiralingRibbon color={CHRISTMAS_PALETTE.brightGold} rotationOffset={0} height={14} radius={5.5} />
+          <SpiralingRibbon color={CHRISTMAS_PALETTE.crimson} rotationOffset={Math.PI * 0.67} height={14} radius={5.2} />
+          <SpiralingRibbon color={CHRISTMAS_PALETTE.ivory} rotationOffset={Math.PI * 1.33} height={14} radius={5.8} />
+        </>
+      )}
 
       {/* 礼物盒 */}
       {state === 'FORMED' && gifts.map((gift, i) => (
