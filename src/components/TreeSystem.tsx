@@ -584,7 +584,7 @@ const TreeSystem: React.FC = () => {
 
       // 根据文件名决定路径
       const imagePath = (fileName === '1.jpg' || fileName === '2.jpg') 
-        ? `/${fileName}` 
+        ? `./${fileName}` 
         : `./photos/${fileName}`;
 
       return {
