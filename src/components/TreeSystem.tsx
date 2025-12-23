@@ -8,8 +8,8 @@ import { TreeContext, ParticleData, TreeContextType } from '../types';
 
 // ... (FoliageMaterial shader 代码保持不变) ...
 const FoliageMaterial = shaderMaterial(
-  { uTime: 0, uColor: new THREE.Color('#004225'), uColorAccent: new THREE.Color('#00fa9a'), uPixelRatio: 1 },
-  ` uniform float uTime; uniform float uPixelRatio; attribute float size; varying vec3 vPosition; varying float vBlink; vec3 curl(float x, float y, float z) { float eps=1.,n1,n2,a,b;x/=eps;y/=eps;z/=eps;vec3 curl=vec3(0.);n1=sin(y+cos(z+uTime));n2=cos(x+sin(z+uTime));curl.x=n1-n2;n1=sin(z+cos(x+uTime));n2=cos(y+sin(x+uTime));curl.z=n1-n2;n1=sin(x+cos(y+uTime));n2=cos(z+sin(y+uTime));curl.z=n1-n2;return curl*0.1; } void main() { vPosition=position; vec3 distortedPosition=position+curl(position.x,position.y,position.z); vec4 mvPosition=modelViewMatrix*vec4(distortedPosition,1.0); gl_Position=projectionMatrix*mvPosition; gl_PointSize=size*uPixelRatio*(60.0/-mvPosition.z); vBlink=sin(uTime*2.0+position.y*5.0+position.x); } `,
+  { uTime: 0, uColor: new THREE.Color('#0f2e13'), uColorAccent: new THREE.Color('#4caf50'), uPixelRatio: 1 },
+  ` uniform float uTime; uniform float uPixelRatio; attribute float size; varying vec3 vPosition; varying float vBlink; vec3 curl(float x, float y, float z) { float eps=1.,n1,n2,a,b;x/=eps;y/=eps;z/=eps;vec3 curl=vec3(0.);n1=sin(y+cos(z+uTime));n2=cos(x+sin(z+uTime));curl.x=n1-n2;n1=sin(z+cos(x+uTime));n2=cos(y+sin(x+uTime));curl.z=n1-n2;n1=sin(x+cos(y+uTime));n2=cos(z+sin(y+uTime));curl.z=n1-n2;return curl*0.1; } void main() { vPosition=position; vec3 distortedPosition=position+curl(position.x,position.y,position.z); vec4 mvPosition=modelViewMatrix*vec4(distortedPosition,1.0); gl_Position=projectionMatrix*mvPosition; gl_PointSize=size*uPixelRatio*(80.0/-mvPosition.z); vBlink=sin(uTime*2.0+position.y*5.0+position.x); } `,
   ` uniform vec3 uColor; uniform vec3 uColorAccent; varying float vBlink; void main() { vec2 xy=gl_PointCoord.xy-vec2(0.5); float ll=length(xy); if(ll>0.5) discard; float strength=pow(1.0-ll*2.0,3.0); vec3 color=mix(uColor,uColorAccent,smoothstep(-0.8,0.8,vBlink)); gl_FragColor=vec4(color,strength); } `
 );
 extend({ FoliageMaterial });
@@ -178,15 +178,45 @@ const TreeSystem: React.FC = () => {
 
   // --- Data Generation ---
   const { foliageData, photosData, lightsData } = useMemo(() => {
-    const particleCount = 4500;
+    const particleCount = 7000;
     const foliage = new Float32Array(particleCount * 3); const foliageChaos = new Float32Array(particleCount * 3); const foliageTree = new Float32Array(particleCount * 3); const sizes = new Float32Array(particleCount);
     const sphere = random.inSphere(new Float32Array(particleCount * 3), { radius: 18 }); for (let i = 0; i < particleCount * 3; i++) foliageChaos[i] = sphere[i];
-    for (let i = 0; i < particleCount; i++) { const i3 = i * 3; const h = Math.random() * 14; const coneRadius = (14 - h) * 0.45; const angle = h * 3.0 + Math.random() * Math.PI * 2; foliageTree[i3] = Math.cos(angle) * coneRadius; foliageTree[i3 + 1] = h - 6; foliageTree[i3 + 2] = Math.sin(angle) * coneRadius; sizes[i] = Math.random() * 1.5 + 0.5; }
+    
+    for (let i = 0; i < particleCount; i++) { 
+      const i3 = i * 3; 
+      // Height from 0 to 16
+      const h = Math.random() * 16;
+      // Wider base
+      const maxR = (16 - h) * 0.6; 
+      // Fill volume but bias towards outside
+      const r = Math.pow(Math.random(), 0.3) * maxR; 
+      const angle = Math.random() * Math.PI * 2; 
+      
+      // Add subtle spiral branch clustering
+      const spiralOffset = Math.sin(h * 0.5 + angle * 4) * 0.2;
+      
+      foliageTree[i3] = Math.cos(angle) * (r + spiralOffset); 
+      foliageTree[i3 + 1] = h - 7.5; // Center vertically
+      foliageTree[i3 + 2] = Math.sin(angle) * (r + spiralOffset); 
+      sizes[i] = Math.random() * 1.5 + 0.5; 
+    }
 
-    const lightCount = 300;
+    const lightCount = 400;
     const lightChaos = new Float32Array(lightCount * 3); const lightTree = new Float32Array(lightCount * 3); const lSphere = random.inSphere(new Float32Array(lightCount * 3), { radius: 20 });
     for (let i = 0; i < lightCount * 3; i++) lightChaos[i] = lSphere[i];
-    for (let i = 0; i < lightCount; i++) { const i3 = i * 3; const t = i / lightCount; const h = t * 13; const coneRadius = (14 - h) * 0.48; const angle = t * Math.PI * 25; lightTree[i3] = Math.cos(angle) * coneRadius; lightTree[i3 + 1] = h - 6; lightTree[i3 + 2] = Math.sin(angle) * coneRadius; }
+    
+    for (let i = 0; i < lightCount; i++) { 
+      const i3 = i * 3; 
+      const t = i / lightCount; 
+      // Spiral placement for lights
+      const h = t * 15; 
+      const r = (16 - h) * 0.65; // Place on surface
+      const angle = t * Math.PI * 30; // More windings
+      
+      lightTree[i3] = Math.cos(angle) * r; 
+      lightTree[i3 + 1] = h - 7.5; 
+      lightTree[i3 + 2] = Math.sin(angle) * r; 
+    }
 
     // 实际存在的照片文件列表
     const photoFiles = [
@@ -219,9 +249,12 @@ const TreeSystem: React.FC = () => {
       // --- FORMED: Time Spiral Layout ---
       // 螺旋上升: i 越大 (越新)，h 越高
       const t = i / (photoCount - 1);
-      const h = t * 14 - 7; // 高度范围 -7 到 7
-      const radius = (7 - (h + 7)) * 0.4 + 1.5; // 树锥形半径
-      const angle = t * Math.PI * 10; // 螺旋圈数 (5圈)
+      const h = t * 15 - 7; // Height range -7 to 8
+      // Adjust radius to match new tree shape (wider base)
+      // Tree surface: R = (8.5 - y) * 0.6
+      // Photo radius: slightly larger to float on top
+      const radius = (8.5 - h) * 0.65 + 0.5; 
+      const angle = t * Math.PI * 10; // 5 loops
 
       const treeX = Math.cos(angle) * radius;
       const treeY = h;
@@ -405,7 +438,7 @@ const TreeSystem: React.FC = () => {
       }
     });
     if (trunkRef.current) {
-      const trunkScale = THREE.MathUtils.smoothstep(ease, 0.3, 1.0); trunkRef.current.scale.set(trunkScale, ease, trunkScale); trunkRef.current.position.y = 1; trunkRef.current.rotation.y = treeRotation.current;
+      const trunkScale = THREE.MathUtils.smoothstep(ease, 0.3, 1.0); trunkRef.current.scale.set(trunkScale, ease, trunkScale); trunkRef.current.position.y = -1.5; trunkRef.current.rotation.y = treeRotation.current;
     }
     photoObjects.forEach((obj) => {
       if (!obj.ref.current) return;
@@ -423,7 +456,7 @@ const TreeSystem: React.FC = () => {
 
   return (
     <group ref={groupRef}>
-      <mesh ref={trunkRef} position={[0, 0, 0]}><cylinderGeometry args={[0.2, 0.8, 14, 8]} /><meshStandardMaterial color="#3E2723" roughness={0.9} metalness={0.1} /></mesh>
+      <mesh ref={trunkRef} position={[0, -1.5, 0]}><cylinderGeometry args={[0.2, 0.9, 16, 8]} /><meshStandardMaterial color="#3E2723" roughness={0.9} metalness={0.1} /></mesh>
       <points ref={pointsRef}> <bufferGeometry> <bufferAttribute attach="attributes-position" count={foliageData.current.length / 3} array={foliageData.current} itemSize={3} /> <bufferAttribute attach="attributes-size" count={foliageData.sizes.length} array={foliageData.sizes} itemSize={1} /> </bufferGeometry> <foliageMaterial transparent depthWrite={false} blending={THREE.AdditiveBlending} /> </points>
       <instancedMesh ref={lightsRef} args={[undefined, undefined, lightsData.count]}><sphereGeometry args={[0.05, 8, 8]} /><meshStandardMaterial color="#ffddaa" emissive="#ffbb00" emissiveIntensity={3} toneMapped={false} /></instancedMesh>
       {photoObjects.map((obj, index) => (

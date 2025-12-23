@@ -15,8 +15,8 @@ const Rig = () => {
     const t = state3d.clock.getElapsedTime();
     // Move camera out when Chaos, in when Formed
     // Apply zoomOffset (clamped to avoid clipping)
-    const baseZ = state === 'CHAOS' ? 22 : 16;
-    const targetZ = Math.max(5, Math.min(baseZ + zoomOffset, 50));
+    const baseZ = state === 'CHAOS' ? 26 : 22;
+    const targetZ = Math.max(8, Math.min(baseZ + zoomOffset, 60));
     const targetY = state === 'CHAOS' ? 2 : 0;
 
     state3d.camera.position.z = THREE.MathUtils.lerp(state3d.camera.position.z, targetZ + Math.sin(t * 0.2) * 2, 0.02);

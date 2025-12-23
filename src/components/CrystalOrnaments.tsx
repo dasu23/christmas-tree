@@ -25,8 +25,9 @@ const CrystalOrnaments: React.FC = () => {
     for (let i = 0; i < count; i++) {
       // Tree Form Data
       const t = i / count;
-      const h = t * 11 - 5.5;
-      const r = (6 - (h + 5.5)) * 0.5 + 0.5;
+      const h = t * 13 - 6; // -6 to 7
+      // Match new tree shape: R = (8.5 - h) * 0.6
+      const r = (8.5 - h) * 0.6 + 0.3;
       const angle = t * Math.PI * 13;
 
       // Chaos Form Data (Outside photos)
@@ -81,7 +82,7 @@ const CrystalOrnaments: React.FC = () => {
 
       groupRef.current.children.forEach((child, i) => {
         if (child.name === 'STAR') {
-          const starY = THREE.MathUtils.lerp(10, 7.5, ease);
+          const starY = THREE.MathUtils.lerp(10, 9.0, ease);
           child.position.set(0, starY, 0);
           child.rotation.y += delta * 0.5;
           const s = 1.0 + Math.sin(state3d.clock.elapsedTime * 3) * 0.1;
@@ -142,17 +143,17 @@ const CrystalOrnaments: React.FC = () => {
       ))}
 
       {/* TOP STAR - 保持醒目 */}
-      <mesh name="STAR" position={[0, 7.5, 0]}>
-        <sphereGeometry args={[0.25, 32, 32]} />
+      <mesh name="STAR" position={[0, 9.0, 0]}>
+        <octahedronGeometry args={[0.4, 0]} />
         <meshStandardMaterial
           color="#ffdd00"
           emissive="#ffaa00"
-          emissiveIntensity={2}
-          roughness={0.2}
+          emissiveIntensity={3}
+          roughness={0.1}
           metalness={1.0}
           toneMapped={false}
         />
-        <pointLight intensity={1.5} color="#ffaa00" distance={8} decay={2} />
+        <pointLight intensity={2} color="#ffaa00" distance={10} decay={2} />
       </mesh>
     </group>
   );
