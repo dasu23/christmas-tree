@@ -2,20 +2,20 @@ import React, { useEffect, useRef, useContext, useState, useCallback } from 'rea
 import { FilesetResolver, GestureRecognizer, NormalizedLandmark } from '@mediapipe/tasks-vision';
 import { TreeContext, TreeContextType, GestureState, defaultGestureState } from '../types';
 
-// 手势检测配置
+// 手势检测配置 - 优化灵敏度
 const GESTURE_CONFIG = {
-  // 手指伸展检测阈值
-  fingerExtensionThreshold: 1.3,
-  // 捏合距离阈值
-  pinchThreshold: 0.05,
-  // 移动检测阈值
-  movementThreshold: 0.005,
-  // 手势稳定帧数阈值
-  gestureStabilityFrames: 10,
-  // 悬停点击时间（秒）
-  dwellClickTime: 1.2,
-  // 点击冷却时间（秒）
-  clickCooldown: 2.0,
+  // 手指伸展检测阈值 (降低以提高灵敏度)
+  fingerExtensionThreshold: 1.15,
+  // 捏合距离阈值 (增加以减少误触)
+  pinchThreshold: 0.08,
+  // 移动检测阈值 (降低以提高响应)
+  movementThreshold: 0.003,
+  // 手势稳定帧数阈值 (减少以加快响应)
+  gestureStabilityFrames: 6,
+  // 悬停点击时间（秒）(减少以加快点击)
+  dwellClickTime: 0.8,
+  // 点击冷却时间（秒）(减少以允许更快连续操作)
+  clickCooldown: 1.0,
   // 手掌张开程度计算权重
   openessWeights: {
     thumb: 0.15,
@@ -110,11 +110,11 @@ const GestureInput: React.FC = () => {
   const requestRef = useRef<number | null>(null);
   const lastVideoTime = useRef<number>(-1);
   
-  // 滤波器
-  const palmXFilter = useRef(new LowPassFilter(0.4));
-  const palmYFilter = useRef(new LowPassFilter(0.4));
-  const opennessFilter = useRef(new LowPassFilter(0.3));
-  const spreadFilter = useRef(new LowPassFilter(0.2));
+  // 滤波器 - 提高响应速度
+  const palmXFilter = useRef(new LowPassFilter(0.6));
+  const palmYFilter = useRef(new LowPassFilter(0.6));
+  const opennessFilter = useRef(new LowPassFilter(0.5));
+  const spreadFilter = useRef(new LowPassFilter(0.4));
   
   // 状态机
   const gestureStateMachine = useRef(new GestureStateMachine(GESTURE_CONFIG.gestureStabilityFrames));
@@ -127,6 +127,10 @@ const GestureInput: React.FC = () => {
   const lastHandDistance = useRef<number | null>(null);
   const lastHandScale = useRef<number | null>(null);
   const velocityRef = useRef<{ x: number, y: number }>({ x: 0, y: 0 });
+  
+  // 自适应灵敏度系统
+  const confidenceHistory = useRef<number[]>([]);
+  const adaptiveSensitivity = useRef<number>(1.0);
 
   // 检测手指是否伸展
   const isFingerExtended = useCallback((
@@ -192,7 +196,11 @@ const GestureInput: React.FC = () => {
       try {
         // 并行启动摄像头和MediaPipe
         const streamPromise = navigator.mediaDevices.getUserMedia({
-          video: { width: 320, height: 240, frameRate: { ideal: 30 } }
+          video: { 
+            width: { ideal: 640, min: 320 }, 
+            height: { ideal: 480, min: 240 }, 
+            frameRate: { ideal: 60, min: 30 }
+          }
         });
 
         const recognizerPromise = (async () => {
@@ -304,6 +312,21 @@ const GestureInput: React.FC = () => {
           const isMoving = Math.abs(dx) > GESTURE_CONFIG.movementThreshold || 
                           Math.abs(dy) > GESTURE_CONFIG.movementThreshold;
 
+          // 自适应灵敏度调整
+          const currentConfidence = results.gestures?.[0]?.[0]?.score || 0;
+          confidenceHistory.current.push(currentConfidence);
+          if (confidenceHistory.current.length > 30) {
+            confidenceHistory.current.shift();
+          }
+          
+          // 根据置信度历史调整灵敏度
+          const avgConfidence = confidenceHistory.current.reduce((a, b) => a + b, 0) / confidenceHistory.current.length;
+          if (avgConfidence > 0.8) {
+            adaptiveSensitivity.current = Math.min(1.3, adaptiveSensitivity.current + 0.01);
+          } else if (avgConfidence < 0.5) {
+            adaptiveSensitivity.current = Math.max(0.7, adaptiveSensitivity.current - 0.01);
+          }
+
           // 更新手势状态
           gestureState = {
             isOpen: isFiveFingers,
@@ -312,7 +335,7 @@ const GestureInput: React.FC = () => {
             isPinching: pinch,
             isTwoFingers,
             openness: smoothedOpenness,
-            confidence: results.gestures?.[0]?.[0]?.score || 0,
+            confidence: currentConfidence,
             palmPosition: { x: smoothedPalmX, y: smoothedPalmY },
             palmVelocity: velocityRef.current
           };
@@ -327,17 +350,17 @@ const GestureInput: React.FC = () => {
             setSpreadFactor(spreadValue);
           }
 
-          // 2. 单手缩放控制（五指张开时）
+          // 2. 单手缩放控制（五指张开时）- 提高灵敏度
           if (results.landmarks.length === 1 && isFiveFingers && currentState === 'CHAOS') {
             const currentScale = getHandScale(landmarks);
             if (lastHandScale.current !== null) {
               const deltaScale = currentScale - lastHandScale.current;
               const speed = Math.abs(deltaScale);
-              const amplifiedDelta = Math.sign(deltaScale) * speed * (1 + speed * 50);
+              const amplifiedDelta = Math.sign(deltaScale) * speed * (1 + speed * 80); // 增加放大倍数
               
               setZoomOffset(prev => {
-                const next = prev - amplifiedDelta * 200.0;
-                return Math.max(-20, Math.min(next, 40));
+                const next = prev - amplifiedDelta * 300.0; // 增加响应速度
+                return Math.max(-25, Math.min(next, 50)); // 扩大范围
               });
             }
             lastHandScale.current = currentScale;
@@ -391,7 +414,7 @@ const GestureInput: React.FC = () => {
                 setHoverProgress(0);
               }
             } else {
-              dwellTimerRef.current = Math.max(0, dwellTimerRef.current - delta * 2);
+              dwellTimerRef.current = Math.max(0, dwellTimerRef.current - delta * 3); // 更快重置
               setHoverProgress(Math.min(dwellTimerRef.current / GESTURE_CONFIG.dwellClickTime, 1.0));
             }
           } else {
@@ -406,11 +429,11 @@ const GestureInput: React.FC = () => {
             const name = gesture.categoryName;
             const score = gesture.score;
 
-            if (score > 0.6) {
+            if (score > 0.5) { // 降低置信度阈值
               const stateResult = gestureStateMachine.current.update(name);
               
               if (stateResult.stable) {
-                if (name === 'Open_Palm' && currentState === 'FORMED' && !isMoving) {
+                if (name === 'Open_Palm' && currentState === 'FORMED') {
                   setState('CHAOS');
                   gestureStateMachine.current.reset();
                 } else if (name === 'Closed_Fist') {
@@ -420,21 +443,22 @@ const GestureInput: React.FC = () => {
               }
             }
 
-            // 旋转控制 (FORMED 模式下五指移动)
-            if (currentState === 'FORMED' && isFiveFingers && Math.abs(dx) > 0.001) {
+            // 旋转控制 (FORMED 模式下五指移动) - 自适应灵敏度
+            if (currentState === 'FORMED' && isFiveFingers && Math.abs(dx) > 0.0005 / adaptiveSensitivity.current) {
               setRotationBoost(prev => {
-                const newBoost = prev - dx * 8.0;
-                return Math.max(Math.min(newBoost, 3.0), -3.0);
+                const sensitivity = 12.0 * adaptiveSensitivity.current;
+                const newBoost = prev - dx * sensitivity;
+                return Math.max(Math.min(newBoost, 4.0), -4.0);
               });
             } else if (currentState === 'FORMED') {
               setRotationBoost(prev => {
-                const decayed = prev * 0.95;
+                const decayed = prev * 0.92;
                 return Math.abs(decayed) < 0.001 ? 0 : decayed;
               });
             }
           }
 
-          // 6. 双手缩放
+          // 6. 双手缩放 - 提高灵敏度
           if (results.landmarks.length === 2) {
             const hand1 = results.landmarks[0][0];
             const hand2 = results.landmarks[1][0];
@@ -443,11 +467,11 @@ const GestureInput: React.FC = () => {
             if (lastHandDistance.current !== null) {
               const distDelta = dist - lastHandDistance.current;
               const speed = Math.abs(distDelta);
-              const amplifiedDelta = Math.sign(distDelta) * speed * (1 + speed * 30);
+              const amplifiedDelta = Math.sign(distDelta) * speed * (1 + speed * 50); // 增加放大倍数
 
               setZoomOffset(prev => {
-                const next = prev - amplifiedDelta * 100.0;
-                return Math.max(-20, Math.min(next, 40));
+                const next = prev - amplifiedDelta * 150.0; // 增加响应速度
+                return Math.max(-25, Math.min(next, 50)); // 扩大范围
               });
             }
             lastHandDistance.current = dist;
@@ -517,10 +541,18 @@ const GestureInput: React.FC = () => {
       
       {/* 手势状态指示器 */}
       {!loading && (
-        <div className="absolute bottom-4 left-4 z-20 text-xs font-mono text-white/50">
-          <div className="flex items-center gap-2">
-            <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
-            <span>GESTURE TRACKING ACTIVE</span>
+        <div className="absolute bottom-4 left-4 z-20 text-xs font-mono text-white/70 bg-black/50 p-3 rounded-lg">
+          <div className="flex flex-col gap-1">
+            <div className="flex items-center gap-2">
+              <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
+              <span>GESTURE TRACKING ACTIVE</span>
+            </div>
+            <div className="text-white/50">
+              灵敏度: {(adaptiveSensitivity.current * 100).toFixed(0)}%
+            </div>
+            <div className="text-white/50">
+              置信度: {((confidenceHistory.current[confidenceHistory.current.length - 1] || 0) * 100).toFixed(0)}%
+            </div>
           </div>
         </div>
       )}
