@@ -102,7 +102,13 @@ const DreamyCursor: React.FC<{ pointer: PointerCoords | null, progress: number, 
 
 // --- 照片弹窗 (圣诞主题) ---
 const PhotoModal: React.FC<{ url: string | null, onClose: () => void }> = ({ url, onClose }) => {
+  const [imageLoaded, setImageLoaded] = useState(false);
+  const [imageError, setImageError] = useState(false);
+  
   if (!url) return null;
+  
+  console.log('PhotoModal 显示照片:', url);
+  
   return (
     <motion.div
       id="photo-modal-backdrop"
@@ -146,11 +152,34 @@ const PhotoModal: React.FC<{ url: string | null, onClose: () => void }> = ({ url
         <div className="absolute -inset-2 bg-gradient-to-r from-red-500/30 via-amber-500/30 to-green-500/30 rounded-lg blur-xl"></div>
         
         {/* 相框 */}
-        <div className="relative bg-white p-3 md:p-4 rounded-lg shadow-[0_0_60px_rgba(255,215,0,0.4)]">
+        <div className="relative bg-white p-3 md:p-4 rounded-lg shadow-[0_0_60px_rgba(255,215,0,0.4)] min-w-[300px] min-h-[200px] flex items-center justify-center">
+          {!imageLoaded && !imageError && (
+            <div className="flex flex-col items-center gap-4 text-gray-600">
+              <div className="w-12 h-12 border-4 border-red-400/30 border-t-red-400 rounded-full animate-spin"></div>
+              <span className="text-sm">加载中...</span>
+            </div>
+          )}
+          
+          {imageError && (
+            <div className="flex flex-col items-center gap-4 text-red-500">
+              <div className="text-4xl">📷</div>
+              <span className="text-sm">图片加载失败</span>
+              <span className="text-xs text-gray-500">{url}</span>
+            </div>
+          )}
+          
           <img 
             src={url} 
             alt="Memory" 
-            className="max-h-[75vh] object-contain rounded shadow-inner" 
+            className={`max-h-[75vh] object-contain rounded shadow-inner transition-opacity duration-300 ${imageLoaded ? 'opacity-100' : 'opacity-0'}`}
+            onLoad={() => {
+              console.log('图片加载成功:', url);
+              setImageLoaded(true);
+            }}
+            onError={(e) => {
+              console.error('图片加载失败:', url, e);
+              setImageError(true);
+            }}
           />
           
           {/* 相框装饰角 */}
@@ -167,7 +196,7 @@ const PhotoModal: React.FC<{ url: string | null, onClose: () => void }> = ({ url
           transition={{ delay: 0.5 }}
           className="absolute -bottom-10 w-full text-center text-amber-200/60 cinzel text-xs md:text-sm tracking-wider"
         >
-          🎄 Precious Memory 🎄
+          🎄 {imageError ? 'Memory Loading Failed' : 'Precious Memory'} 🎄
         </motion.div>
       </motion.div>
     </motion.div>
@@ -311,9 +340,9 @@ const AppContent: React.FC = () => {
             className="text-white/40 text-xs cinzel tracking-wider"
           >
             {webcamEnabled ? (
-              <span>✊ 握拳聚合 · ✋ 张开扩散 · 👆 指向选择 · ✌️ 两指平移</span>
+              <span>✊ 握拳聚合 · ✋ 张开扩散 · 👆 指向选择 · ✌️ 两指平移 · 🎁 点击礼物盒查看照片</span>
             ) : (
-              <span>🖱️ 拖拽旋转 · 滚轮缩放 · 享受圣诞魔法</span>
+              <span>🖱️ 拖拽旋转 · 滚轮缩放 · 🎁 点击礼物盒查看照片 · 享受圣诞魔法</span>
             )}
           </motion.div>
         </footer>
